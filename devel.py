@@ -10,7 +10,7 @@ from datetime import timedelta
 
 from utils.wrappers import *
 from utils.hyperparameters import *
-from agents.Dueling_DQN import Model
+from agents.DQN import Model
 
 
 def plot(frame_idx, rewards, losses, elapsed_time):

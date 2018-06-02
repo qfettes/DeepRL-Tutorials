@@ -5,17 +5,24 @@ import torch.optim as optim
 
 from utils.hyperparameters import *
 from networks.networks import DQN, DQN_simple
-from utils.ReplayMemory import ExperienceReplayMemory
+from utils.ReplayMemory import ExperienceReplayMemory, PrioritizedReplayMemory
 
 class Model(object):
     def __init__(self, static_policy=False, env=None):
         super(Model, self).__init__()
+        self.noisy=USE_NOISY_NETS
+        self.priority_replay=USE_PRIORITY_REPLAY
+
         self.gamma=GAMMA
         self.lr = LR
         self.target_net_update_freq = TARGET_NET_UPDATE_FREQ
         self.experience_replay_size = EXP_REPLAY_SIZE
         self.batch_size = BATCH_SIZE
         self.learn_start = LEARN_START
+        self.sigma_init=SIGMA_INIT
+        self.priority_beta_start = PRIORITY_BETA_START
+        self.priority_beta_frames = PRIORITY_BETA_FRAMES
+        self.priority_alpha = PRIORITY_ALPHA
 
         self.num_actions = env.action_space.n
         self.env = env
@@ -40,14 +47,14 @@ class Model(object):
 
         self.update_count = 0
 
-        self.memory = ExperienceReplayMemory(self.experience_replay_size)
+        self.memory = ExperienceReplayMemory(self.experience_replay_size) if not self.priority_replay else PrioritizedReplayMemory(self.experience_replay_size, self.priority_alpha, self.priority_beta_start, self.priority_beta_frames)
 
         self.nsteps = N_STEPS
         self.nstep_buffer = []
 
     def declare_networks(self):
-        self.model = DQN_simple(self.env.observation_space.shape, self.env.action_space.n)
-        self.target_model = DQN_simple(self.env.observation_space.shape, self.env.action_space.n)
+        self.model = DQN_simple(self.env.observation_space.shape, self.env.action_space.n, noisy=self.noisy, sigma_init=self.sigma_init)
+        self.target_model = DQN_simple(self.env.observation_space.shape, self.env.action_space.n, noisy=self.noisy, sigma_init=self.sigma_init)
 
     def append_to_replay(self, s, a, r, s_):
         self.nstep_buffer.append((s, a, r, s_))
@@ -71,7 +78,11 @@ class Model(object):
 
     def prep_minibatch(self):
         # random transition batch is taken from experience replay memory
-        transitions = self.memory.sample(self.batch_size)
+        if self.priority_replay:
+            transitions, indices, weights = self.memory.sample(BATCH_SIZE)
+        else:
+            transitions = self.memory.sample(BATCH_SIZE)
+            indices, weights = None, None
         
         batch_state, batch_action, batch_reward, batch_next_state = zip(*transitions)
 
@@ -89,12 +100,13 @@ class Model(object):
             non_final_next_states = None
             empty_next_state_values = True
 
-        return batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values
+        return batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights
 
     def compute_loss(self, batch_vars):
-        batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values = batch_vars
+        batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights = batch_vars
 
         #estimate
+        self.model.sample_noise()
         current_q_values = self.model(batch_state).gather(1, batch_action)
         
         #target
@@ -102,11 +114,15 @@ class Model(object):
             max_next_q_values = torch.zeros(self.batch_size, device=device, dtype=torch.float).unsqueeze(dim=1)
             if not empty_next_state_values:
                 max_next_action = self.get_max_next_state_action(non_final_next_states)
+                self.target_model.sample_noise()
                 max_next_q_values[non_final_mask] = self.target_model(non_final_next_states).gather(1, max_next_action)
             expected_q_values = batch_reward + ((self.gamma**self.nsteps)*max_next_q_values)
 
         diff = (expected_q_values - current_q_values)
-        loss = self.huber(diff).squeeze()        
+        loss = self.huber(diff).squeeze()
+        if self.priority_replay:
+            self.memory.update_priorities(indices, loss.detach().cpu().numpy().tolist())
+            loss = loss*weights        
         loss = loss.mean()
 
         return loss
@@ -137,7 +153,7 @@ class Model(object):
 
     def get_action(self, s, eps=0.1):
         with torch.no_grad():
-            if np.random.random() >= eps or self.static_policy:
+            if np.random.random() >= eps or self.static_policy or self.noisy:
                 X = torch.tensor([s], device=device, dtype=torch.float)
                 a = self.model(X).max(1)[1].view(1, 1)
                 return a.item()

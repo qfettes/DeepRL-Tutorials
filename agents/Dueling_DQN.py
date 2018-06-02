@@ -10,5 +10,5 @@ class Model(DQN_Agent):
         super(Model, self).__init__(static_policy, env)
 
     def declare_networks(self):
-        self.model = DuelingDQN_simple(self.env.observation_space.shape, self.env.action_space.n)
-        self.target_model = DuelingDQN_simple(self.env.observation_space.shape, self.env.action_space.n)
+        self.model = DuelingDQN_simple(self.env.observation_space.shape, self.env.action_space.n, noisy=self.noisy, sigma_init=self.sigma_init)
+        self.target_model = DuelingDQN_simple(self.env.observation_space.shape, self.env.action_space.n, noisy=self.noisy, sigma_init=self.sigma_init)
