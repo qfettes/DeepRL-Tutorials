@@ -19,4 +19,4 @@ Requirements:
 * OpenCV 
 
 Acknowledgements: 
-* Credit to [@higgsfield](https://github.com/higgsfield) for the environment wrappers
+* Credit to [@higgsfield](https://github.com/higgsfield) for the environment wrappers and plotting code
