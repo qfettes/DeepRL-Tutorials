@@ -21,5 +21,6 @@ Requirements:
 * OpenCV 
 
 Acknowledgements: 
-* Credit to [@higgsfield](https://github.com/higgsfield) for the environment wrappers and plotting code
+* Credit to [@baselines](https://github.com/openai/baselines) for the environment wrappers and much of the Prioritized Replay implementation
+* Credit to [@higgsfield](https://github.com/higgsfield) for the plotting code
 * Credit to [@Kaixhin](https://github.com/Kaixhin) for factorized Noisy Linear Layer implementation
