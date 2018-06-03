@@ -8,7 +8,7 @@ USE_NOISY_NETS=False
 USE_PRIORITY_REPLAY=True
 #Multi-step returns
 N_STEPS = 1
-
+'''
 #epsilon variables
 epsilon_start = 1.0
 epsilon_final = 0.01
@@ -31,9 +31,8 @@ PRIORITY_BETA_FRAMES = 1000
 SIGMA_INIT=0.5
 
 #Learning control variables
-LEARN_START = 32 + N_STEPS
-MAX_FRAMES=10000
-
+LEARN_START = BATCH_SIZE+1
+MAX_FRAMES=40000
 
 
 '''
@@ -56,11 +55,9 @@ PRIORITY_ALPHA=0.6
 PRIORITY_BETA_START=0.4
 PRIORITY_BETA_FRAMES = 100000
 
+#Noisy Nets
+SIGMA_INIT=0.5
+
 #Learning control variables
 LEARN_START = 10000
 MAX_FRAMES=1000000
-
-#Multi-step returns
-N_STEPS = 3
-
-'''

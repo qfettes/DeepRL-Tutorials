@@ -15,24 +15,25 @@ from agents.DQN import Model
 
 def plot(frame_idx, rewards, losses, elapsed_time):
     #clear_output(True)
-    plt.figure(figsize=(20,5))
+    '''plt.figure(figsize=(20,5))
     plt.subplot(131)
     plt.title('frame %s. reward: %s. time: %s' % (frame_idx, np.mean(rewards[-10:]), elapsed_time))
     plt.plot(rewards)
     plt.subplot(132)
     plt.title('loss')
     plt.plot(losses)
-    plt.show()
+    plt.show()'''
+    print('frame %s. reward: %s. time: %s' % (frame_idx, np.mean(rewards[-10:]), elapsed_time))
 
 
 if __name__=='__main__':
     start=timer()
 
-    '''env_id = "PongNoFrameskip-v4"
+    env_id = "PongNoFrameskip-v4"
     env    = make_atari(env_id)
-    env    = wrap_deepmind(env)
-    env    = wrap_pytorch(env)'''
-    env = gym.make('CartPole-v0')
+    env    = wrap_deepmind(env, frame_stack=False)
+    env    = wrap_pytorch(env)
+    #env = gym.make('CartPole-v0')
     #env = wrappers.Monitor(env, 'Delete', force=True)
     model = Model(env=env)
 

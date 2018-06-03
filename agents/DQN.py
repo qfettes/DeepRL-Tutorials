@@ -53,8 +53,8 @@ class Model(object):
         self.nstep_buffer = []
 
     def declare_networks(self):
-        self.model = DQN_simple(self.env.observation_space.shape, self.env.action_space.n, noisy=self.noisy, sigma_init=self.sigma_init)
-        self.target_model = DQN_simple(self.env.observation_space.shape, self.env.action_space.n, noisy=self.noisy, sigma_init=self.sigma_init)
+        self.model = DQN(self.env.observation_space.shape, self.env.action_space.n, noisy=self.noisy, sigma_init=self.sigma_init)
+        self.target_model = DQN(self.env.observation_space.shape, self.env.action_space.n, noisy=self.noisy, sigma_init=self.sigma_init)
 
     def append_to_replay(self, s, a, r, s_):
         self.nstep_buffer.append((s, a, r, s_))
@@ -65,15 +65,15 @@ class Model(object):
         R = sum([self.nstep_buffer[i][2]*(self.gamma**i) for i in range(self.nsteps)])
         state, action, _, _ = self.nstep_buffer.pop(0)
 
-        state = [state]
-        action = [[action]]
-        reward = [[R]]
-        if s_ is None:
-            next_state = None
-        else:
-            next_state = [s_]
+        #state = [state]
+        #action = [[action]]
+        #reward = [[R]]
+        #if s_ is None:
+        #    next_state = None
+        #else:
+        #    next_state = [s_]
 
-        self.memory.push((state, action, reward, next_state))
+        self.memory.push((state, action, R, s_))
 
 
     def prep_minibatch(self):
@@ -119,10 +119,12 @@ class Model(object):
             expected_q_values = batch_reward + ((self.gamma**self.nsteps)*max_next_q_values)
 
         diff = (expected_q_values - current_q_values)
-        loss = self.huber(diff).squeeze()
         if self.priority_replay:
-            self.memory.update_priorities(indices, loss.detach().cpu().numpy().tolist())
-            loss = loss*weights        
+            self.memory.update_priorities(indices, diff.detach().squeeze().abs().cpu().numpy().tolist())
+            loss = self.huber(diff).squeeze() * weights
+        else:
+            loss = self.huber(diff)
+    
         loss = loss.mean()
 
         return loss
