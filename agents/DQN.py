@@ -24,9 +24,8 @@ class Model(object):
         self.priority_beta_frames = PRIORITY_BETA_FRAMES
         self.priority_alpha = PRIORITY_ALPHA
 
-        self.agent=agent
         self.static_policy=static_policy
-        self.num_feats=env.observation_space.shape
+        self.num_feats = env.observation_space.shape
         self.num_actions = env.action_space.n
         self.env = env
 
@@ -54,8 +53,8 @@ class Model(object):
         self.nstep_buffer = []
 
     def declare_networks(self):
-        self.model = DQN(self.env.observation_space.shape, self.env.action_space.n, noisy=self.noisy, sigma_init=self.sigma_init)
-        self.target_model = DQN(self.env.observation_space.shape, self.env.action_space.n, noisy=self.noisy, sigma_init=self.sigma_init)
+        self.model = DQN(self.num_feats, self.num_actions, noisy=self.noisy, sigma_init=self.sigma_init)
+        self.target_model = DQN(self.num_feats, self.num_actions, noisy=self.noisy, sigma_init=self.sigma_init)
 
     def append_to_replay(self, s, a, r, s_):
         self.nstep_buffer.append((s, a, r, s_))
@@ -79,7 +78,7 @@ class Model(object):
         
         batch_state, batch_action, batch_reward, batch_next_state = zip(*transitions)
 
-        shape = (-1,)+self.env.observation_space.shape
+        shape = (-1,)+self.num_feats
 
         batch_state = torch.tensor(batch_state, device=device, dtype=torch.float).view(shape)
         batch_action = torch.tensor(batch_action, device=device, dtype=torch.long).squeeze().view(-1, 1)
