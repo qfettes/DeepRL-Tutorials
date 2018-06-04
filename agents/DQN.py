@@ -24,10 +24,11 @@ class Model(object):
         self.priority_beta_frames = PRIORITY_BETA_FRAMES
         self.priority_alpha = PRIORITY_ALPHA
 
+        self.agent=agent
+        self.static_policy=static_policy
+        self.num_feats=env.observation_space.shape
         self.num_actions = env.action_space.n
         self.env = env
-
-        self.static_policy=static_policy
 
         self.declare_networks()
             
@@ -64,14 +65,6 @@ class Model(object):
         
         R = sum([self.nstep_buffer[i][2]*(self.gamma**i) for i in range(self.nsteps)])
         state, action, _, _ = self.nstep_buffer.pop(0)
-
-        #state = [state]
-        #action = [[action]]
-        #reward = [[R]]
-        #if s_ is None:
-        #    next_state = None
-        #else:
-        #    next_state = [s_]
 
         self.memory.push((state, action, R, s_))
 
@@ -176,11 +169,7 @@ class Model(object):
             R = sum([self.nstep_buffer[i][2]*(self.gamma**i) for i in range(len(self.nstep_buffer))])
             state, action, _, _ = self.nstep_buffer.pop(0)
 
-            state = [state]
-            action = [[action]]
-            reward = [[R]]
-
-            self.memory.push((state, action, reward, None))
+            self.memory.push((state, action, R, None))
 
     def huber(self, x):
         cond = (x < 1.0).float().detach()
