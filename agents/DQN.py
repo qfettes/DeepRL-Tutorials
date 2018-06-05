@@ -4,7 +4,7 @@ import torch
 import torch.optim as optim
 
 from utils.hyperparameters import *
-from networks.networks import DQN, DQN_simple
+from networks.networks import DQN
 from utils.ReplayMemory import ExperienceReplayMemory, PrioritizedReplayMemory
 
 class Model(object):

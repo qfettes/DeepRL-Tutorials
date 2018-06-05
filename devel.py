@@ -29,11 +29,11 @@ def plot(frame_idx, rewards, losses, elapsed_time):
 if __name__=='__main__':
     start=timer()
 
-    env_id = "PongNoFrameskip-v4"
+    '''env_id = "PongNoFrameskip-v4"
     env    = make_atari(env_id)
     env    = wrap_deepmind(env, frame_stack=False)
-    env    = wrap_pytorch(env)
-    #env = gym.make('CartPole-v0')
+    env    = wrap_pytorch(env)'''
+    env = gym.make('CartPole-v0')
     #env = wrappers.Monitor(env, 'Delete', force=True)
     model = Model(env=env)
 

@@ -8,7 +8,7 @@ USE_NOISY_NETS=False
 USE_PRIORITY_REPLAY=True
 #Multi-step returns
 N_STEPS = 1
-'''
+
 #epsilon variables
 epsilon_start = 1.0
 epsilon_final = 0.01
@@ -32,7 +32,7 @@ SIGMA_INIT=0.5
 
 #Learning control variables
 LEARN_START = BATCH_SIZE+1
-MAX_FRAMES=40000
+MAX_FRAMES=20000
 
 
 '''
@@ -61,3 +61,5 @@ SIGMA_INIT=0.5
 #Learning control variables
 LEARN_START = 10000
 MAX_FRAMES=1000000
+
+'''

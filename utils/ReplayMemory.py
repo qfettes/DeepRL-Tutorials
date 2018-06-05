@@ -156,12 +156,12 @@ class PrioritizedReplayMemory(object):
         """
         assert len(idxes) == len(priorities)
         for idx, priority in zip(idxes, priorities):
-            assert priority > 0
+            assert priority >= 0
             assert 0 <= idx < len(self._storage)
-            self._it_sum[idx] = priority ** self._alpha
-            self._it_min[idx] = priority ** self._alpha
+            self._it_sum[idx] = (priority+1e-5) ** self._alpha
+            self._it_min[idx] = (priority+1e-5) ** self._alpha
 
-            self._max_priority = max(self._max_priority, priority)
+            self._max_priority = max(self._max_priority, (priority+1e-5))
 
 
 '''class PrioritizedReplayMemory(object):  
