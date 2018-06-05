@@ -149,6 +149,7 @@ class Model(object):
         with torch.no_grad():
             if np.random.random() >= eps or self.static_policy or self.noisy:
                 X = torch.tensor([s], device=device, dtype=torch.float)
+                self.model.sample_noise()
                 a = self.model(X).max(1)[1].view(1, 1)
                 return a.item()
             else:
