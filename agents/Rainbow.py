@@ -3,9 +3,9 @@ import numpy as np
 import torch
 
 from agents.DQN import Model as DQN_Agent
-from networks.network_bodies import SimpleBody, AtariBody
-from networks.networks import CategoricalDQN
 from utils.hyperparameters import ATOMS, V_MAX, V_MIN, device
+from networks.networks import CategoricalDuelingDQN, CategoricalDQN
+from utils.ReplayMemory import PrioritizedReplayMemory
 
 class Model(DQN_Agent):
     def __init__(self, static_policy=False, env=None):
@@ -17,10 +17,12 @@ class Model(DQN_Agent):
 
         super(Model, self).__init__(static_policy, env)
     
-    
     def declare_networks(self):
-        self.model = CategoricalDQN(self.env.observation_space.shape, self.env.action_space.n, noisy=self.noisy, sigma_init=self.sigma_init, atoms=self.atoms)
-        self.target_model = CategoricalDQN(self.env.observation_space.shape, self.env.action_space.n, noisy=self.noisy, sigma_init=self.sigma_init, atoms=self.atoms)
+        self.model = CategoricalDuelingDQN(self.env.observation_space.shape, self.env.action_space.n, noisy=True, sigma_init=self.sigma_init, atoms=self.atoms)
+        self.target_model = CategoricalDuelingDQN(self.env.observation_space.shape, self.env.action_space.n, noisy=True, sigma_init=self.sigma_init, atoms=self.atoms)
+
+    def declare_memory(self):
+        self.memory = PrioritizedReplayMemory(self.experience_replay_size, self.priority_alpha, self.priority_beta_start, self.priority_beta_frames)
 
     def projection_distribution(self, batch_vars):
         batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights = batch_vars
@@ -63,9 +65,8 @@ class Model(DQN_Agent):
         target_prob = self.projection_distribution(batch_vars)
           
         loss = -(target_prob * current_dist.log()).sum(-1)
-        if self.priority_replay:
-            self.memory.update_priorities(indices, loss.detach().squeeze().abs().cpu().numpy().tolist())
-            loss = loss * weights
+        self.memory.update_priorities(indices, loss.detach().squeeze().abs().cpu().numpy().tolist())
+        loss = loss * weights
         loss = loss.mean()
 
         return loss
@@ -73,15 +74,13 @@ class Model(DQN_Agent):
 
     def get_action(self, s, eps):
         with torch.no_grad():
-            if np.random.random() >= eps or self.static_policy or self.noisy:
-                X = torch.tensor([s], device=device, dtype=torch.float)
-                self.model.sample_noise()
-                a = self.model(X) * self.supports
-                a = a.sum(dim=2).max(1)[1].view(1, 1)
-                return a.item()
-            else:
-                return np.random.randint(0, self.num_actions)
+            X = torch.tensor([s], device=device, dtype=torch.float)
+            self.model.sample_noise()
+            a = self.model(X) * self.supports
+            a = a.sum(dim=2).max(1)[1].view(1, 1)
+            return a.item()
 
     def get_max_next_state_action(self, next_states):
-        next_dist = self.target_model(next_states) * self.supports
+        next_dist = self.model(next_states) * self.supports
         return next_dist.sum(dim=2).max(1)[1].view(next_states.size(0), 1, 1).expand(-1, -1, self.atoms)
+

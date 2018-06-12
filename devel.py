@@ -10,20 +10,20 @@ from datetime import timedelta
 
 from utils.wrappers import *
 from utils.hyperparameters import *
-from agents.DQN import Model
+from agents.Rainbow import Model
 
 
 def plot(frame_idx, rewards, losses, elapsed_time):
     #clear_output(True)
-    '''plt.figure(figsize=(20,5))
+    plt.figure(figsize=(20,5))
     plt.subplot(131)
     plt.title('frame %s. reward: %s. time: %s' % (frame_idx, np.mean(rewards[-10:]), elapsed_time))
     plt.plot(rewards)
     plt.subplot(132)
     plt.title('loss')
     plt.plot(losses)
-    plt.show()'''
-    print('frame %s. reward: %s. time: %s' % (frame_idx, np.mean(rewards[-10:]), elapsed_time))
+    plt.show()
+    #print('frame %s. reward: %s. time: %s' % (frame_idx, np.mean(rewards[-10:]), elapsed_time))
 
 
 if __name__=='__main__':

@@ -4,10 +4,10 @@ import math
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 #algorithm control
-USE_NOISY_NETS=False
-USE_PRIORITY_REPLAY=True
+USE_NOISY_NETS=True
+USE_PRIORITY_REPLAY=False
 #Multi-step returns
-N_STEPS = 1
+N_STEPS = 3
 
 #epsilon variables
 epsilon_start = 1.0
@@ -20,7 +20,7 @@ GAMMA=0.99
 LR=1e-3
 
 #memory
-TARGET_NET_UPDATE_FREQ = 100
+TARGET_NET_UPDATE_FREQ = 128
 EXP_REPLAY_SIZE = 10000
 BATCH_SIZE = 32
 PRIORITY_ALPHA=0.6
@@ -31,8 +31,13 @@ PRIORITY_BETA_FRAMES = 1000
 SIGMA_INIT=0.5
 
 #Learning control variables
-LEARN_START = BATCH_SIZE+1
-MAX_FRAMES=20000
+LEARN_START = BATCH_SIZE+N_STEPS
+MAX_FRAMES=100000
+
+#Categorical Params
+ATOMS = 51
+V_MAX = 20
+V_MIN = 0
 
 
 '''

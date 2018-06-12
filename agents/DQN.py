@@ -7,6 +7,8 @@ from utils.hyperparameters import *
 from networks.networks import DQN
 from utils.ReplayMemory import ExperienceReplayMemory, PrioritizedReplayMemory
 
+from timeit import default_timer as timer
+
 class Model(object):
     def __init__(self, static_policy=False, env=None):
         super(Model, self).__init__()
@@ -47,7 +49,7 @@ class Model(object):
 
         self.update_count = 0
 
-        self.memory = ExperienceReplayMemory(self.experience_replay_size) if not self.priority_replay else PrioritizedReplayMemory(self.experience_replay_size, self.priority_alpha, self.priority_beta_start, self.priority_beta_frames)
+        self.declare_memory()
 
         self.nsteps = N_STEPS
         self.nstep_buffer = []
@@ -55,6 +57,9 @@ class Model(object):
     def declare_networks(self):
         self.model = DQN(self.num_feats, self.num_actions, noisy=self.noisy, sigma_init=self.sigma_init)
         self.target_model = DQN(self.num_feats, self.num_actions, noisy=self.noisy, sigma_init=self.sigma_init)
+
+    def declare_memory(self):
+        self.memory = ExperienceReplayMemory(self.experience_replay_size) if not self.priority_replay else PrioritizedReplayMemory(self.experience_replay_size, self.priority_alpha, self.priority_beta_start, self.priority_beta_frames)
 
     def append_to_replay(self, s, a, r, s_):
         self.nstep_buffer.append((s, a, r, s_))
@@ -70,11 +75,7 @@ class Model(object):
 
     def prep_minibatch(self):
         # random transition batch is taken from experience replay memory
-        if self.priority_replay:
-            transitions, indices, weights = self.memory.sample(BATCH_SIZE)
-        else:
-            transitions = self.memory.sample(BATCH_SIZE)
-            indices, weights = None, None
+        transitions, indices, weights = self.memory.sample(BATCH_SIZE)
         
         batch_state, batch_action, batch_reward, batch_next_state = zip(*transitions)
 
@@ -137,8 +138,8 @@ class Model(object):
         # Optimize the model
         self.optimizer.zero_grad()
         loss.backward()
-        '''for param in self.model.parameters():
-            param.grad.data.clamp_(-1, 1)'''
+        for param in self.model.parameters():
+            param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
 
         self.update_target_model()

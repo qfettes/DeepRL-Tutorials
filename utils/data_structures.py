@@ -110,7 +110,11 @@ class SumSegmentTree(SegmentTree):
         idx: int
             highest index satisfying the prefixsum constraint
         """
-        assert 0 <= prefixsum <= self.sum() + 1e-5
+        try:
+            assert 0 <= prefixsum <= self.sum() + 1e-5
+        except AssertionError:
+            print("Prefix sum error: {}".format(prefixsum))
+            exit()
         idx = 1
         while idx < self._capacity:  # while non-leaf
             if self._value[2 * idx] > prefixsum:

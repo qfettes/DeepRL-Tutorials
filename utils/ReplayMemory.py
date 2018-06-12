@@ -17,7 +17,7 @@ class ExperienceReplayMemory:
             del self.memory[0]
 
     def sample(self, batch_size):
-        return random.sample(self.memory, batch_size)
+        return random.sample(self.memory, batch_size), None, None
 
     def __len__(self):
         return len(self.memory)
@@ -156,7 +156,6 @@ class PrioritizedReplayMemory(object):
         """
         assert len(idxes) == len(priorities)
         for idx, priority in zip(idxes, priorities):
-            assert priority >= 0
             assert 0 <= idx < len(self._storage)
             self._it_sum[idx] = (priority+1e-5) ** self._alpha
             self._it_min[idx] = (priority+1e-5) ** self._alpha
