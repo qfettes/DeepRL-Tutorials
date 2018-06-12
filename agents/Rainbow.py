@@ -71,7 +71,6 @@ class Model(DQN_Agent):
 
         return loss
 
-
     def get_action(self, s, eps):
         with torch.no_grad():
             X = torch.tensor([s], device=device, dtype=torch.float)
