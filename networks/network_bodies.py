@@ -6,7 +6,7 @@ from networks.layers import NoisyLinear
 
 class AtariBody(nn.Module):
     def __init__(self, input_shape, num_actions, noisy=False, sigma_init=0.5):
-        super(DQN, self).__init__()
+        super(AtariBody, self).__init__()
         
         self.input_shape = input_shape
         self.num_actions = num_actions

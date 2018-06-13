@@ -4,7 +4,7 @@ import math
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 #algorithm control
-USE_NOISY_NETS=True
+USE_NOISY_NETS=False
 USE_PRIORITY_REPLAY=False
 #Multi-step returns
 N_STEPS = 3
