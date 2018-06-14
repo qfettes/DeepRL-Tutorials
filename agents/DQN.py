@@ -174,5 +174,5 @@ class Model(object):
             self.memory.push((state, action, R, None))
 
     def huber(self, x):
-        cond = (x < 1.0).float().detach()
-        return 0.5 * x.pow(2) * cond + (x.abs() - 0.5) * (1.0 - cond)
+        cond = (x.abs() < 1.0).to(torch.float)
+        return 0.5 * x.pow(2) * cond + (x.abs() - 0.5) * (1 - cond)
