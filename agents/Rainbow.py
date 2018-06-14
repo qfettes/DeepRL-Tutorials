@@ -73,7 +73,7 @@ class Model(DQN_Agent):
 
     def get_action(self, s, eps):
         with torch.no_grad():
-            X = torch.tensor([s], device=device, dtype=torch.float)
+            X = torch.tensor([s], device=device, dtype=torch.float) #pylint: disable=E1102
             self.model.sample_noise()
             a = self.model(X) * self.supports
             a = a.sum(dim=2).max(1)[1].view(1, 1)

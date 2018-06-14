@@ -5,6 +5,8 @@ from gym import spaces
 import cv2
 cv2.ocl.setUseOpenCL(False)
 
+#pylint: disable=E0202
+
 class NoopResetEnv(gym.Wrapper):
     def __init__(self, env, noop_max=30):
         """Sample initial states by taking random number of no-ops on reset.
@@ -118,7 +120,7 @@ class MaxAndSkipEnv(gym.Wrapper):
 
         return max_frame, total_reward, done, info
 
-    def reset(self, **kwargs):
+    def reset(self, **kwargs): #pylint: disable=E0102
         return self.env.reset(**kwargs)
 
 class ClipRewardEnv(gym.RewardWrapper):

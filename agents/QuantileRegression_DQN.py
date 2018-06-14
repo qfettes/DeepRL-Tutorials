@@ -10,7 +10,7 @@ from utils.hyperparameters import QUANTILES, device
 class Model(DQN_Agent):
     def __init__(self, static_policy=False, env=None):
         self.num_quantiles = QUANTILES
-        self.cumulative_density = torch.tensor((2 * np.arange(self.num_quantiles) + 1) / (2.0 * self.num_quantiles), device=device, dtype=torch.float)
+        self.cumulative_density = torch.tensor((2 * np.arange(self.num_quantiles) + 1) / (2.0 * self.num_quantiles), device=device, dtype=torch.float) #pylint: disable=E1102
         self.quantile_weight = 1.0 / self.num_quantiles
 
         super(Model, self).__init__(static_policy, env)
@@ -57,11 +57,10 @@ class Model(DQN_Agent):
 
         return loss
 
-
     def get_action(self, s, eps):
         with torch.no_grad():
             if np.random.random() >= eps or self.static_policy or self.noisy:
-                X = torch.tensor([s], device=device, dtype=torch.float)
+                X = torch.tensor([s], device=device, dtype=torch.float) #pylint: disable=E1102
                 self.model.sample_noise()
                 a = (self.model(X)*self.quantile_weight).sum(dim=2).max(dim=1)[1]
                 return a.item()

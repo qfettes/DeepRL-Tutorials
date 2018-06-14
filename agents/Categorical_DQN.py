@@ -16,8 +16,7 @@ class Model(DQN_Agent):
         self.delta = (self.v_max - self.v_min) / (self.atoms - 1)
 
         super(Model, self).__init__(static_policy, env)
-    
-    
+
     def declare_networks(self):
         self.model = CategoricalDQN(self.env.observation_space.shape, self.env.action_space.n, noisy=self.noisy, sigma_init=self.sigma_init, atoms=self.atoms)
         self.target_model = CategoricalDQN(self.env.observation_space.shape, self.env.action_space.n, noisy=self.noisy, sigma_init=self.sigma_init, atoms=self.atoms)
@@ -74,7 +73,7 @@ class Model(DQN_Agent):
     def get_action(self, s, eps):
         with torch.no_grad():
             if np.random.random() >= eps or self.static_policy or self.noisy:
-                X = torch.tensor([s], device=device, dtype=torch.float)
+                X = torch.tensor([s], device=device, dtype=torch.float) #pylint: disable=E1102
                 self.model.sample_noise()
                 a = self.model(X) * self.supports
                 a = a.sum(dim=2).max(1)[1].view(1, 1)
