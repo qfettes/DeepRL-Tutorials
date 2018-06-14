@@ -81,13 +81,13 @@ class Model(object):
 
         shape = (-1,)+self.num_feats
 
-        batch_state = torch.tensor(batch_state, device=device, dtype=torch.float).view(shape) #pylint: disable=E1102
-        batch_action = torch.tensor(batch_action, device=device, dtype=torch.long).squeeze().view(-1, 1) #pylint: disable=E1102
-        batch_reward = torch.tensor(batch_reward, device=device, dtype=torch.float).squeeze().view(-1, 1) #pylint: disable=E1102
+        batch_state = torch.tensor(batch_state, device=device, dtype=torch.float).view(shape) 
+        batch_action = torch.tensor(batch_action, device=device, dtype=torch.long).squeeze().view(-1, 1) 
+        batch_reward = torch.tensor(batch_reward, device=device, dtype=torch.float).squeeze().view(-1, 1) 
         
-        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch_next_state)), device=device, dtype=torch.uint8) #pylint: disable=E1102
+        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch_next_state)), device=device, dtype=torch.uint8) 
         try: #sometimes all next states are false
-            non_final_next_states = torch.tensor([s for s in batch_next_state if s is not None], device=device, dtype=torch.float).view(shape) #pylint: disable=E1102
+            non_final_next_states = torch.tensor([s for s in batch_next_state if s is not None], device=device, dtype=torch.float).view(shape)
             empty_next_state_values = False
         except:
             non_final_next_states = None
@@ -145,11 +145,10 @@ class Model(object):
         self.update_target_model()
         return loss.item()
 
-
     def get_action(self, s, eps=0.1):
         with torch.no_grad():
             if np.random.random() >= eps or self.static_policy or self.noisy:
-                X = torch.tensor([s], device=device, dtype=torch.float) #pylint: disable=E1102
+                X = torch.tensor([s], device=device, dtype=torch.float) 
                 self.model.sample_noise()
                 tmp = timer()
                 a = self.model(X).max(1)[1].view(1, 1)

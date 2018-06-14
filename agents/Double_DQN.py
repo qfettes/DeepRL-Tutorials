@@ -9,4 +9,4 @@ class Model(DQN_Agent):
         super(Model, self).__init__(static_policy, env)
 
     def get_max_next_state_action(self, next_states):
-        return self.model(next_states).max(dim=1)[1].view(-1, 1)
+        return self.model(next_states).max(dim=1)[1].view(-1, 1) 

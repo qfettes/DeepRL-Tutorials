@@ -10,7 +10,7 @@ from utils.hyperparameters import QUANTILES, device
 class Model(DQN_Agent):
     def __init__(self, static_policy=False, env=None):
         self.num_quantiles = QUANTILES
-        self.cumulative_density = torch.tensor((2 * np.arange(self.num_quantiles) + 1) / (2.0 * self.num_quantiles), device=device, dtype=torch.float) #pylint: disable=E1102
+        self.cumulative_density = torch.tensor((2 * np.arange(self.num_quantiles) + 1) / (2.0 * self.num_quantiles), device=device, dtype=torch.float) 
         self.quantile_weight = 1.0 / self.num_quantiles
 
         super(Model, self).__init__(static_policy, env)
@@ -30,7 +30,7 @@ class Model(DQN_Agent):
                 max_next_action = self.get_max_next_state_action(non_final_next_states)
                 quantiles_next[non_final_mask] = self.target_model(non_final_next_states).gather(1, max_next_action).squeeze(dim=1)
 
-            quantiles_next = batch_reward + (self.gamma*quantiles_next)
+            quantiles_next = batch_reward + (self.gamma * quantiles_next)
 
         return quantiles_next
     
@@ -39,7 +39,7 @@ class Model(DQN_Agent):
 
         batch_action = batch_action.unsqueeze(dim=-1).expand(-1, -1, self.num_quantiles)
 
-        #estimate
+        # estimate
         self.model.sample_noise()
         quantiles = self.model(batch_state)
         quantiles = quantiles.gather(1, batch_action).squeeze(1)
@@ -49,7 +49,7 @@ class Model(DQN_Agent):
         diff = quantiles_next.t().unsqueeze(-1) - quantiles.unsqueeze(0)
 
         loss = self.huber(diff) * torch.abs(self.cumulative_density.view(1, -1) - (diff < 0).to(torch.float))
-        loss = loss.transpose(0,1)
+        loss = loss.transpose(0, 1)
         if self.priority_replay:
             self.memory.update_priorities(indices, loss.detach().mean(1).sum(-1).abs().cpu().numpy().tolist())
             loss = loss * weights.view(self.batch_size, 1, 1)
@@ -60,13 +60,13 @@ class Model(DQN_Agent):
     def get_action(self, s, eps):
         with torch.no_grad():
             if np.random.random() >= eps or self.static_policy or self.noisy:
-                X = torch.tensor([s], device=device, dtype=torch.float) #pylint: disable=E1102
+                X = torch.tensor([s], device=device, dtype=torch.float) 
                 self.model.sample_noise()
-                a = (self.model(X)*self.quantile_weight).sum(dim=2).max(dim=1)[1]
+                a = (self.model(X) * self.quantile_weight).sum(dim=2).max(dim=1)[1]
                 return a.item()
             else:
                 return np.random.randint(0, self.num_actions)
 
     def get_max_next_state_action(self, next_states):
-        next_dist = self.target_model(next_states)*self.quantile_weight
+        next_dist = self.target_model(next_states) * self.quantile_weight
         return next_dist.sum(dim=2).max(1)[1].view(next_states.size(0), 1, 1).expand(-1, -1, self.num_quantiles)

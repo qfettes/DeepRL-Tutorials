@@ -7,3 +7,6 @@ __pycache__/
 
 #VSCode Meta
 .vscode/
+
+#linting
+.mypy_cache/
