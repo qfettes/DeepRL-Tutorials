@@ -1,0 +1,12 @@
+# Byte-compiled / optmized / DLL files
+__pycache__/
+*.py[cod]
+
+# Ipython Checkpoints
+.ipynb_checkpoints/
+
+#VSCode Meta
+.vscode/
+
+#linting
+.mypy_cache/

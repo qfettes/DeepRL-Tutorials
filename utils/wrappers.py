@@ -5,6 +5,7 @@ from gym import spaces
 import cv2
 cv2.ocl.setUseOpenCL(False)
 
+
 class NoopResetEnv(gym.Wrapper):
     def __init__(self, env, noop_max=30):
         """Sample initial states by taking random number of no-ops on reset.
@@ -22,7 +23,7 @@ class NoopResetEnv(gym.Wrapper):
         if self.override_num_noops is not None:
             noops = self.override_num_noops
         else:
-            noops = self.unwrapped.np_random.randint(1, self.noop_max + 1) #pylint: disable=E1101
+            noops = self.unwrapped.np_random.randint(1, self.noop_max + 1) 
         assert noops > 0
         obs = None
         for _ in range(noops):
@@ -118,7 +119,7 @@ class MaxAndSkipEnv(gym.Wrapper):
 
         return max_frame, total_reward, done, info
 
-    def reset(self, **kwargs):
+    def reset(self, **kwargs): 
         return self.env.reset(**kwargs)
 
 class ClipRewardEnv(gym.RewardWrapper):

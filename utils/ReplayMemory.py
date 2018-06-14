@@ -137,7 +137,7 @@ class PrioritizedReplayMemory(object):
             p_sample = self._it_sum[idx] / self._it_sum.sum()
             weight = (p_sample * len(self._storage)) ** (-beta)
             weights.append(weight / max_weight)
-        weights = torch.tensor(weights, device=device, dtype=torch.float)
+        weights = torch.tensor(weights, device=device, dtype=torch.float) 
         encoded_sample = self._encode_sample(idxes)
         return encoded_sample, idxes, weights
 

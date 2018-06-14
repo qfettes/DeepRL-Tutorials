@@ -4,10 +4,10 @@ import math
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 #algorithm control
-USE_NOISY_NETS=False
+USE_NOISY_NETS=True
 USE_PRIORITY_REPLAY=False
 #Multi-step returns
-N_STEPS = 3
+N_STEPS = 1
 
 #epsilon variables
 epsilon_start = 1.0
@@ -38,6 +38,9 @@ MAX_FRAMES=100000
 ATOMS = 51
 V_MAX = 20
 V_MIN = 0
+
+#Quantile Regression Parameters
+QUANTILES=51
 
 
 '''
