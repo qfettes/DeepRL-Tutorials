@@ -25,5 +25,5 @@ Requirements:
 
 Acknowledgements: 
 * Credit to [@baselines](https://github.com/openai/baselines) for the environment wrappers
-* Credit to [@higgsfield](https://github.com/higgsfield) for the plotting code and inspiration for the prioritized replay implementation
+* Credit to [@higgsfield](https://github.com/higgsfield) for the plotting code, epsilon annealing code, and inspiration for the prioritized replay implementation
 * Credit to [@Kaixhin](https://github.com/Kaixhin) for factorized Noisy Linear Layer implementation and the projection_distribution function found in Categorical-DQN.ipynb
