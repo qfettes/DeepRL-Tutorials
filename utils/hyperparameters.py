@@ -4,7 +4,7 @@ import math
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 #algorithm control
-USE_NOISY_NETS=True
+USE_NOISY_NETS=False
 USE_PRIORITY_REPLAY=False
 #Multi-step returns
 N_STEPS = 1
@@ -17,7 +17,7 @@ epsilon_by_frame = lambda frame_idx: epsilon_final + (epsilon_start - epsilon_fi
 
 #misc agent variables
 GAMMA=0.99
-LR=1e-3
+LR=1e-4
 
 #memory
 TARGET_NET_UPDATE_FREQ = 128
@@ -36,7 +36,7 @@ MAX_FRAMES=100000
 
 #Categorical Params
 ATOMS = 51
-V_MAX = 20
+V_MAX = 50
 V_MIN = 0
 
 #Quantile Regression Parameters

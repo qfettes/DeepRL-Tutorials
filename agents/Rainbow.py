@@ -16,6 +16,8 @@ class Model(DQN_Agent):
         self.delta = (self.v_max - self.v_min) / (self.atoms - 1)
 
         super(Model, self).__init__(static_policy, env)
+
+        self.nsteps=max(self.nsteps,3)
     
     def declare_networks(self):
         self.model = CategoricalDuelingDQN(self.env.observation_space.shape, self.env.action_space.n, noisy=True, sigma_init=self.sigma_init, atoms=self.atoms)
