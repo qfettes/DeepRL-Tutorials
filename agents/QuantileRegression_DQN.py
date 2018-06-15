@@ -30,7 +30,7 @@ class Model(DQN_Agent):
                 max_next_action = self.get_max_next_state_action(non_final_next_states)
                 quantiles_next[non_final_mask] = self.target_model(non_final_next_states).gather(1, max_next_action).squeeze(dim=1)
 
-            quantiles_next = batch_reward + (self.gamma * quantiles_next)
+            quantiles_next = batch_reward + (self.gamma*quantiles_next)
 
         return quantiles_next
     
@@ -39,7 +39,7 @@ class Model(DQN_Agent):
 
         batch_action = batch_action.unsqueeze(dim=-1).expand(-1, -1, self.num_quantiles)
 
-        # estimate
+        #estimate
         self.model.sample_noise()
         quantiles = self.model(batch_state)
         quantiles = quantiles.gather(1, batch_action).squeeze(1)
@@ -49,7 +49,7 @@ class Model(DQN_Agent):
         diff = quantiles_next.t().unsqueeze(-1) - quantiles.unsqueeze(0)
 
         loss = self.huber(diff) * torch.abs(self.cumulative_density.view(1, -1) - (diff < 0).to(torch.float))
-        loss = loss.transpose(0, 1)
+        loss = loss.transpose(0,1)
         if self.priority_replay:
             self.memory.update_priorities(indices, loss.detach().mean(1).sum(-1).abs().cpu().numpy().tolist())
             loss = loss * weights.view(self.batch_size, 1, 1)

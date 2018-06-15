@@ -3,6 +3,7 @@ import numpy as np
 import torch
 
 from agents.DQN import Model as DQN_Agent
+from networks.network_bodies import SimpleBody, AtariBody
 from networks.networks import DuelingQRDQN
 from utils.ReplayMemory import PrioritizedReplayMemory
 from utils.hyperparameters import QUANTILES, device
@@ -16,6 +17,7 @@ class Model(DQN_Agent):
         super(Model, self).__init__(static_policy, env)
 
         self.nsteps=max(self.nsteps, 3)
+    
     
     def declare_networks(self):
         self.model = DuelingQRDQN(self.env.observation_space.shape, self.env.action_space.n, noisy=True, sigma_init=self.sigma_init, quantiles=self.num_quantiles)
@@ -34,7 +36,7 @@ class Model(DQN_Agent):
                 max_next_action = self.get_max_next_state_action(non_final_next_states)
                 quantiles_next[non_final_mask] = self.target_model(non_final_next_states).gather(1, max_next_action).squeeze(dim=1)
 
-            quantiles_next = batch_reward + (self.gamma * quantiles_next)
+            quantiles_next = batch_reward + (self.gamma*quantiles_next)
 
         return quantiles_next
     
@@ -52,7 +54,7 @@ class Model(DQN_Agent):
         diff = quantiles_next.t().unsqueeze(-1) - quantiles.unsqueeze(0)
 
         loss = self.huber(diff) * torch.abs(self.cumulative_density.view(1, -1) - (diff < 0).to(torch.float))
-        loss = loss.transpose(0, 1)
+        loss = loss.transpose(0,1)
         self.memory.update_priorities(indices, loss.detach().mean(1).sum(-1).abs().cpu().numpy().tolist())
         loss = loss * weights.view(self.batch_size, 1, 1)
         loss = loss.mean(1).sum(-1).mean()
