@@ -163,6 +163,35 @@ class PrioritizedReplayMemory(object):
             self._max_priority = max(self._max_priority, (priority+1e-5))
 
 
+class RecurrentExperienceReplayMemory:
+    def __init__(self, capacity, sequence_length=10):
+        self.capacity = capacity
+        self.memory = []
+        self.seq_length=sequence_length
+
+    def push(self, transition):
+        self.memory.append(transition)
+        if len(self.memory) > self.capacity:
+            del self.memory[0]
+
+    def sample(self, batch_size):
+        finish = random.sample(range(0, len(self.memory)+1), batch_size)
+        begin = [x-self.seq_length for x in finish]
+        samp = []
+        for start, end in zip(begin, finish):
+            filler = []
+            if start+1 < 0: # sampling near beginning of buffer
+                for i in range(-1*(start+1)):
+                    filler += (np.zeros_like(self.memory[0][0]), 0, 0, np.zeros_like(self.memory[0][3]))
+            final = filler+self.memory[max(start+1,0):end+1]
+            samp += final
+
+        return samp
+
+    def __len__(self):
+        return len(self.memory)
+
+
 '''class PrioritizedReplayMemory(object):  
     def __init__(self, capacity, alpha=0.6, beta_start=0.4, beta_frames=100000):
         self.prob_alpha = alpha
