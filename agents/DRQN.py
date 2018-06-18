@@ -43,7 +43,7 @@ class Model(DQN_Agent):
         except:
             empty_next_state_values = True
 
-        #non_final_next_states = torch.cat([batch_state[non_final_mask, 1:, :], non_final_next_states], dim=1)
+        non_final_next_states = torch.cat([batch_state[non_final_mask, 1:, :], non_final_next_states], dim=1)
 
         return batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights
 
@@ -52,18 +52,21 @@ class Model(DQN_Agent):
 
         #estimate
         self.model.sample_noise()
-        current_q_values, hx = self.model(batch_state)
-        hx = hx[non_final_mask]
+        #current_q_values, hx = self.model(batch_state)
+        #hx = hx[non_final_mask]
+        current_q_values, _ = self.model(batch_state)
         current_q_values = current_q_values.gather(1, batch_action)
         
         #target
         with torch.no_grad():
             max_next_q_values = torch.zeros(self.batch_size, device=device, dtype=torch.float).unsqueeze(dim=1)
             if not empty_next_state_values:
-                max_next_action = self.get_max_next_state_action(non_final_next_states, hx)
+                #max_next_action = self.get_max_next_state_action(non_final_next_states, hx)
                 self.target_model.sample_noise()
-                max_next, _ = self.target_model(non_final_next_states, hx)
-                max_next_q_values[non_final_mask] = max_next.gather(1, max_next_action)
+                #max_next, _ = self.target_model(non_final_next_states, hx)
+                max_next, _ = self.target_model(non_final_next_states)
+                #max_next_q_values[non_final_mask] = max_next.gather(1, max_next_action)
+                max_next_q_values[non_final_mask] = max_next.max(dim=1)[0].unsqueeze(dim=1)
             expected_q_values = batch_reward + ((self.gamma**self.nsteps)*max_next_q_values)
 
         diff = (expected_q_values - current_q_values)
@@ -83,9 +86,9 @@ class Model(DQN_Agent):
             else:
                 return np.random.randint(0, self.num_actions)
 
-    def get_max_next_state_action(self, next_states, hx):
-        max_next, _ = self.target_model(next_states, hx)
-        return max_next.max(dim=1)[1].view(-1, 1)
+    #def get_max_next_state_action(self, next_states, hx):
+    #    max_next, _ = self.target_model(next_states, hx)
+    #    return max_next.max(dim=1)[1].view(-1, 1)
 
     def reset_hx(self):
         self.action_hx = self.model.init_hidden(1)
