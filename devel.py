@@ -2,6 +2,8 @@ import gym
 import numpy as np
 
 from IPython.display import clear_output
+import matplotlib
+matplotlib.use("agg")
 from matplotlib import pyplot as plt
 #%matplotlib inline
 
