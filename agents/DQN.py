@@ -174,3 +174,6 @@ class Model(object):
     def huber(self, x):
         cond = (x.abs() < 1.0).to(torch.float)
         return 0.5 * x.pow(2) * cond + (x.abs() - 0.5) * (1 - cond)
+
+    def reset_hx(self):
+        pass

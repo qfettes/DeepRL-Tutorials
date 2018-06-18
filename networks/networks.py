@@ -4,6 +4,7 @@ import torch.nn.functional as F
 
 from networks.layers import NoisyLinear
 from networks.network_bodies import SimpleBody, AtariBody
+from utils.hyperparameters import device
 
 class DQN(nn.Module):
     def __init__(self, input_shape, num_actions, noisy=False, sigma_init=0.5, body=SimpleBody):
@@ -204,3 +205,42 @@ class DuelingQRDQN(nn.Module):
             self.adv2.sample_noise()
             self.val1.sample_noise()
             self.val2.sample_noise()
+
+
+########Recurrent Architectures#########
+
+class DRQN(nn.Module):
+    def __init__(self, input_shape, num_actions, noisy=False, sigma_init=0.5, body=SimpleBody, gru_size=512, bidirectional=False):
+        super(DRQN, self).__init__()
+        
+        self.input_shape = input_shape
+        self.num_actions = num_actions
+        self.noisy=noisy
+        self.gru_size = gru_size
+        self.bidirectional = bidirectional
+        self.num_directions = 2 if self.bidirectional else 1
+
+        self.body = body(input_shape, num_actions, noisy, sigma_init)
+        self.gru = nn.GRUCell(self.body.feature_size(), self.gru_size)
+        self.fc2 = nn.Linear(self.gru_size, self.num_actions) if not self.noisy else NoisyLinear(self.gru_size, self.num_actions, sigma_init)
+        
+    def forward(self, x, hx=None):
+        batch_size = x.size(0)
+        x = x.transpose(0, 1)
+
+        hidden = self.init_hidden(batch_size) if hx is None else hx
+        for i in range(x.size(0)):
+            feats = self.body(x[i]).view(batch_size, -1)
+            hidden = self.gru(feats, hidden)
+
+        x = self.fc2(hidden)
+
+        return x, hidden
+
+    def sample_noise(self):
+        if self.noisy:
+            self.body.sample_noise()
+            self.fc2.sample_noise()
+
+    def init_hidden(self, batch_size):
+        return torch.zeros(batch_size, self.gru_size, device=device, dtype=torch.float)
