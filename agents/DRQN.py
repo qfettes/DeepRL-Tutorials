@@ -28,7 +28,9 @@ class Model(DQN_Agent):
 
         batch_state, batch_action, batch_reward, batch_next_state = zip(*transitions)
 
-        batch_state = torch.tensor(batch_state, device=device, dtype=torch.float).view(self.batch_size, self.sequence_length, -1)
+        shape = (self.batch_size,self.sequence_length)+self.num_feats
+
+        batch_state = torch.tensor(batch_state, device=device, dtype=torch.float).view(shape)
         batch_action = torch.tensor(batch_action, device=device, dtype=torch.long).view(self.batch_size, self.sequence_length, -1)[:,self.sequence_length-1,:]
         batch_reward = torch.tensor(batch_reward, device=device, dtype=torch.float).view(self.batch_size, self.sequence_length, -1)[:,self.sequence_length-1,:]
         #get set of next states for end of each sequence
@@ -41,7 +43,7 @@ class Model(DQN_Agent):
         except:
             empty_next_state_values = True
 
-        non_final_next_states = torch.cat([batch_state[non_final_mask, 1:, :], non_final_next_states], dim=1)
+        #non_final_next_states = torch.cat([batch_state[non_final_mask, 1:, :], non_final_next_states], dim=1)
 
         return batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights
 
