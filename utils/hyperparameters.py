@@ -16,7 +16,7 @@ class Config(object):
         #epsilon variables
         self.epsilon_start = 1.0
         self.epsilon_final = 0.01
-        self.epsilon_decay = 500
+        self.epsilon_decay = 30000
         self.epsilon_by_frame = lambda frame_idx: self.epsilon_final + (self.epsilon_start - self.epsilon_final) * math.exp(-1. * frame_idx / self.epsilon_decay)
 
         #misc agent variables
@@ -24,30 +24,30 @@ class Config(object):
         self.LR=1e-4
 
         #memory
-        self.TARGET_NET_UPDATE_FREQ = 256
-        self.EXP_REPLAY_SIZE = 10000
-        self.BATCH_SIZE = 128
-        self.PRIORITY_ALPHA=0.3
+        self.TARGET_NET_UPDATE_FREQ = 1000
+        self.EXP_REPLAY_SIZE = 100000
+        self.BATCH_SIZE = 32
+        self.PRIORITY_ALPHA=0.6
         self.PRIORITY_BETA_START=0.4
-        self.PRIORITY_BETA_FRAMES = 1000
+        self.PRIORITY_BETA_FRAMES = 100000
 
         #Noisy Nets
-        self.SIGMA_INIT=0.2
+        self.SIGMA_INIT=0.5
 
         #Learning control variables
-        self.LEARN_START = self.BATCH_SIZE*2
+        self.LEARN_START = 10000
         self.MAX_FRAMES=100000
 
         #Categorical Params
         self.ATOMS = 51
-        self.V_MAX = 50
-        self.V_MIN = 0
+        self.V_MAX = 10
+        self.V_MIN = -10
 
         #Quantile Regression Parameters
-        self.QUANTILES=11
+        self.QUANTILES=51
 
         #DRQN Parameters
-        self.SEQUENCE_LENGTH=10
+        self.SEQUENCE_LENGTH=8
 
 
 '''

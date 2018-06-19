@@ -14,6 +14,51 @@ from utils.wrappers import *
 from utils.hyperparameters import Config
 from agents.Rainbow import Model
 
+config = Config()
+
+#algorithm control
+config.USE_NOISY_NETS=False
+config.USE_PRIORITY_REPLAY=False
+
+#Multi-step returns
+config.N_STEPS = 1
+
+#epsilon variables
+config.epsilon_start = 1.0
+config.epsilon_final = 0.01
+config.epsilon_decay = 500
+config.epsilon_by_frame = lambda frame_idx: config.epsilon_final + (config.epsilon_start - config.epsilon_final) * math.exp(-1. * frame_idx / config.epsilon_decay)
+
+#misc agent variables
+config.GAMMA=0.99
+config.LR=1e-4
+
+#memory
+config.TARGET_NET_UPDATE_FREQ = 128
+config.EXP_REPLAY_SIZE = 10000
+config.BATCH_SIZE = 32
+config.PRIORITY_ALPHA=0.6
+config.PRIORITY_BETA_START=0.4
+config.PRIORITY_BETA_FRAMES = 100000
+
+#Noisy Nets
+config.SIGMA_INIT=0.5
+
+#Learning control variables
+config.LEARN_START = config.BATCH_SIZE*2
+config.MAX_FRAMES=100000
+
+#Categorical Params
+config.ATOMS = 51
+config.V_MAX = 50
+config.V_MIN = 0
+
+#Quantile Regression Parameters
+config.QUANTILES=21
+
+#DRQN Parameters
+config.SEQUENCE_LENGTH=8
+
 
 def plot(frame_idx, rewards, losses, elapsed_time):
     #clear_output(True)
@@ -37,7 +82,6 @@ if __name__=='__main__':
     env    = wrap_pytorch(env)'''
     env = gym.make('CartPole-v0')
     #env = wrappers.Monitor(env, 'Delete', force=True)
-    config = Config()
     model = Model(env=env, config=config)
 
     losses = []
