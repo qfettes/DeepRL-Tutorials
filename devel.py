@@ -9,6 +9,7 @@ from matplotlib import pyplot as plt
 
 from timeit import default_timer as timer
 from datetime import timedelta
+import math
 
 from utils.wrappers import *
 from utils.hyperparameters import Config
