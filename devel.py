@@ -11,8 +11,8 @@ from timeit import default_timer as timer
 from datetime import timedelta
 
 from utils.wrappers import *
-from utils.hyperparameters import *
-from agents.DRQN import Model
+from utils.hyperparameters import Config
+from agents.Rainbow import Model
 
 
 def plot(frame_idx, rewards, losses, elapsed_time):
@@ -37,15 +37,16 @@ if __name__=='__main__':
     env    = wrap_pytorch(env)'''
     env = gym.make('CartPole-v0')
     #env = wrappers.Monitor(env, 'Delete', force=True)
-    model = Model(env=env)
+    config = Config()
+    model = Model(env=env, config=config)
 
     losses = []
     all_rewards = []
     episode_reward = 0
 
     observation = env.reset()
-    for frame_idx in range(1, MAX_FRAMES + 1):
-        epsilon = epsilon_by_frame(frame_idx)
+    for frame_idx in range(1, config.MAX_FRAMES + 1):
+        epsilon = config.epsilon_by_frame(frame_idx)
 
         action = model.get_action(observation, epsilon)
         prev_observation=observation

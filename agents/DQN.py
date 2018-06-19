@@ -3,30 +3,31 @@ import numpy as np
 import torch
 import torch.optim as optim
 
-from utils.hyperparameters import *
 from networks.networks import DQN
 from utils.ReplayMemory import ExperienceReplayMemory, PrioritizedReplayMemory
 
 from timeit import default_timer as timer
 
 class Model(object):
-    def __init__(self, static_policy=False, env=None):
+    def __init__(self, static_policy=False, env=None, config=None):
         super(Model, self).__init__()
-        self.noisy=USE_NOISY_NETS
-        self.priority_replay=USE_PRIORITY_REPLAY
+        self.device = config.device
 
-        self.gamma=GAMMA
-        self.lr = LR
-        self.target_net_update_freq = TARGET_NET_UPDATE_FREQ
-        self.experience_replay_size = EXP_REPLAY_SIZE
-        self.batch_size = BATCH_SIZE
-        self.learn_start = LEARN_START
-        self.sigma_init=SIGMA_INIT
-        self.priority_beta_start = PRIORITY_BETA_START
-        self.priority_beta_frames = PRIORITY_BETA_FRAMES
-        self.priority_alpha = PRIORITY_ALPHA
+        self.noisy=config.USE_NOISY_NETS
+        self.priority_replay=config.USE_PRIORITY_REPLAY
 
-        self.static_policy=static_policy
+        self.gamma = config.GAMMA
+        self.lr = config.LR
+        self.target_net_update_freq = config.TARGET_NET_UPDATE_FREQ
+        self.experience_replay_size = config.EXP_REPLAY_SIZE
+        self.batch_size = config.BATCH_SIZE
+        self.learn_start = config.LEARN_START
+        self.sigma_init= config.SIGMA_INIT
+        self.priority_beta_start = config.PRIORITY_BETA_START
+        self.priority_beta_frames = config.PRIORITY_BETA_FRAMES
+        self.priority_alpha = config.PRIORITY_ALPHA
+
+        self.static_policy = static_policy
         self.num_feats = env.observation_space.shape
         self.num_actions = env.action_space.n
         self.env = env
@@ -37,8 +38,8 @@ class Model(object):
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
         
         #move to correct device
-        self.model = self.model.to(device)
-        self.target_model.to(device)
+        self.model = self.model.to(self.device)
+        self.target_model.to(self.device)
 
         if self.static_policy:
             self.model.eval()
@@ -51,7 +52,7 @@ class Model(object):
 
         self.declare_memory()
 
-        self.nsteps = N_STEPS
+        self.nsteps = config.N_STEPS
         self.nstep_buffer = []
 
     def declare_networks(self):
@@ -74,19 +75,19 @@ class Model(object):
 
     def prep_minibatch(self):
         # random transition batch is taken from experience replay memory
-        transitions, indices, weights = self.memory.sample(BATCH_SIZE)
+        transitions, indices, weights = self.memory.sample(self.batch_size)
         
         batch_state, batch_action, batch_reward, batch_next_state = zip(*transitions)
 
         shape = (-1,)+self.num_feats
 
-        batch_state = torch.tensor(batch_state, device=device, dtype=torch.float).view(shape)
-        batch_action = torch.tensor(batch_action, device=device, dtype=torch.long).squeeze().view(-1, 1)
-        batch_reward = torch.tensor(batch_reward, device=device, dtype=torch.float).squeeze().view(-1, 1)
+        batch_state = torch.tensor(batch_state, device=self.device, dtype=torch.float).view(shape)
+        batch_action = torch.tensor(batch_action, device=self.device, dtype=torch.long).squeeze().view(-1, 1)
+        batch_reward = torch.tensor(batch_reward, device=self.device, dtype=torch.float).squeeze().view(-1, 1)
         
-        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch_next_state)), device=device, dtype=torch.uint8)
+        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch_next_state)), device=self.device, dtype=torch.uint8)
         try: #sometimes all next states are false
-            non_final_next_states = torch.tensor([s for s in batch_next_state if s is not None], device=device, dtype=torch.float).view(shape)
+            non_final_next_states = torch.tensor([s for s in batch_next_state if s is not None], device=self.device, dtype=torch.float).view(shape)
             empty_next_state_values = False
         except:
             non_final_next_states = None
@@ -103,7 +104,7 @@ class Model(object):
         
         #target
         with torch.no_grad():
-            max_next_q_values = torch.zeros(self.batch_size, device=device, dtype=torch.float).unsqueeze(dim=1)
+            max_next_q_values = torch.zeros(self.batch_size, device=self.device, dtype=torch.float).unsqueeze(dim=1)
             if not empty_next_state_values:
                 max_next_action = self.get_max_next_state_action(non_final_next_states)
                 self.target_model.sample_noise()
@@ -145,8 +146,8 @@ class Model(object):
 
     def get_action(self, s, eps=0.1):
         with torch.no_grad():
-            if np.random.random() >= eps or self.static_policy:
-                X = torch.tensor([s], device=device, dtype=torch.float)
+            if np.random.random() >= eps or self.static_policy or self.noisy:
+                X = torch.tensor([s], device=self.device, dtype=torch.float)
                 self.model.sample_noise()
                 a = self.model(X).max(1)[1].view(1, 1)
                 return a.item()

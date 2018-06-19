@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 from networks.layers import NoisyLinear
 from networks.network_bodies import SimpleBody, AtariBody
-from utils.hyperparameters import device
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class DQN(nn.Module):
     def __init__(self, input_shape, num_actions, noisy=False, sigma_init=0.5, body=SimpleBody):

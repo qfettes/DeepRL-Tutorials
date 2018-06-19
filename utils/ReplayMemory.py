@@ -2,7 +2,7 @@ import random
 import numpy as np
 import torch
 
-from utils.hyperparameters import device
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 from utils.data_structures import SegmentTree, MinSegmentTree, SumSegmentTree
 
 

@@ -1,29 +1,83 @@
 import numpy as np
 
 import torch
+import torch.optim as optim
 
 from agents.DQN import Model as DQN_Agent
-from networks.networks import DRQN
-from utils.ReplayMemory import RecurrentExperienceReplayMemory
-from utils.hyperparameters import SEQUENCE_LENGTH, device
+from networks.networks import DRQN, DQN
+from utils.ReplayMemory import RecurrentExperienceReplayMemory, ExperienceReplayMemory
+#from utils.hyperparameters import SEQUENCE_LENGTH, device
+from utils.hyperparameters import *
+from networks.network_bodies import AtariBody, SimpleBody
 
 class Model(DQN_Agent):
-    def __init__(self, static_policy=False, env=None):
+    '''def __init__(self, static_policy=False, env=None):
         self.sequence_length=SEQUENCE_LENGTH
 
         super(Model, self).__init__(static_policy, env)
 
+        self.reset_hx()'''
+
+    def __init__(self, static_policy=False, env=None, config=None):
+        self.noisy=False
+        self.priority_replay=False
+        self.sigma_init=0.0
+        
+        self.sequence_length=SEQUENCE_LENGTH
+        
+        self.gamma=GAMMA
+        self.lr = LR
+        self.target_net_update_freq = TARGET_NET_UPDATE_FREQ
+        self.experience_replay_size = EXP_REPLAY_SIZE
+        self.batch_size = BATCH_SIZE
+        self.learn_start = LEARN_START
+
+        self.static_policy=static_policy
+        self.num_feats = env.observation_space.shape
+        self.num_actions = env.action_space.n
+        self.env = env
+
+        self.declare_networks()
+            
+        self.target_model.load_state_dict(self.model.state_dict())
+        self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
+        
+        self.model = self.model.to(device)
+        self.target_model.to(device)
+
+        if self.static_policy:
+            self.model.eval()
+            self.target_model.eval()
+        else:
+            self.model.train()
+            self.target_model.train()
+
+        self.update_count = 0
+
+        self.declare_memory()
+
+        self.nsteps = N_STEPS
+        self.nstep_buffer = []
+        
         self.reset_hx()
     
-    
     def declare_networks(self):
+        self.model = DQN(self.num_feats, self.num_actions, body=AtariBody)
+        self.target_model = DQN(self.num_feats, self.num_actions, body=AtariBody)
+
+    def declare_memory(self):
+        #self.memory = RecurrentExperienceReplayMemory(self.experience_replay_size, self.sequence_length)
+        self.memory = ExperienceReplayMemory(self.experience_replay_size)
+    
+    
+    '''def declare_networks(self):
         self.model = DRQN(self.env.observation_space.shape, self.env.action_space.n, noisy=self.noisy, sigma_init=self.sigma_init)
         self.target_model = DRQN(self.env.observation_space.shape, self.env.action_space.n, noisy=self.noisy, sigma_init=self.sigma_init)
 
     def declare_memory(self):
-        self.memory = RecurrentExperienceReplayMemory(self.experience_replay_size, self.sequence_length)
+        self.memory = RecurrentExperienceReplayMemory(self.experience_replay_size, self.sequence_length)'''
 
-    def prep_minibatch(self):
+    '''def prep_minibatch(self):
         transitions, indices, weights = self.memory.sample(self.batch_size)
 
         batch_state, batch_action, batch_reward, batch_next_state = zip(*transitions)
@@ -88,9 +142,9 @@ class Model(DQN_Agent):
 
     #def get_max_next_state_action(self, next_states, hx):
     #    max_next, _ = self.target_model(next_states, hx)
-    #    return max_next.max(dim=1)[1].view(-1, 1)
+    #    return max_next.max(dim=1)[1].view(-1, 1)'''
 
-    def reset_hx(self):
-        self.action_hx = self.model.init_hidden(1)
+    #def reset_hx(self):
+    #    self.action_hx = self.model.init_hidden(1)
 
     

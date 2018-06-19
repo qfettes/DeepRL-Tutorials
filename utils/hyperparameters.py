@@ -1,49 +1,53 @@
 import torch
 import math
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-#algorithm control
-USE_NOISY_NETS=False
-USE_PRIORITY_REPLAY=False
-#Multi-step returns
-N_STEPS = 1
+class Config(object):
+    def __init__(self):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-#epsilon variables
-epsilon_start = 1.0
-epsilon_final = 0.01
-epsilon_decay = 500
-epsilon_by_frame = lambda frame_idx: epsilon_final + (epsilon_start - epsilon_final) * math.exp(-1. * frame_idx / epsilon_decay)
+        #algorithm control
+        self.USE_NOISY_NETS=False
+        self.USE_PRIORITY_REPLAY=False
+        
+        #Multi-step returns
+        self.N_STEPS = 1
 
-#misc agent variables
-GAMMA=0.99
-LR=1e-4
+        #epsilon variables
+        self.epsilon_start = 1.0
+        self.epsilon_final = 0.01
+        self.epsilon_decay = 500
+        self.epsilon_by_frame = lambda frame_idx: self.epsilon_final + (self.epsilon_start - self.epsilon_final) * math.exp(-1. * frame_idx / self.epsilon_decay)
 
-#memory
-TARGET_NET_UPDATE_FREQ = 256
-EXP_REPLAY_SIZE = 10000
-BATCH_SIZE = 128
-PRIORITY_ALPHA=0.3
-PRIORITY_BETA_START=0.4
-PRIORITY_BETA_FRAMES = 1000
+        #misc agent variables
+        self.GAMMA=0.99
+        self.LR=1e-4
 
-#Noisy Nets
-SIGMA_INIT=0.2
+        #memory
+        self.TARGET_NET_UPDATE_FREQ = 256
+        self.EXP_REPLAY_SIZE = 10000
+        self.BATCH_SIZE = 128
+        self.PRIORITY_ALPHA=0.3
+        self.PRIORITY_BETA_START=0.4
+        self.PRIORITY_BETA_FRAMES = 1000
 
-#Learning control variables
-LEARN_START = BATCH_SIZE*2
-MAX_FRAMES=100000
+        #Noisy Nets
+        self.SIGMA_INIT=0.2
 
-#Categorical Params
-ATOMS = 51
-V_MAX = 50
-V_MIN = 0
+        #Learning control variables
+        self.LEARN_START = self.BATCH_SIZE*2
+        self.MAX_FRAMES=100000
 
-#Quantile Regression Parameters
-QUANTILES=11
+        #Categorical Params
+        self.ATOMS = 51
+        self.V_MAX = 50
+        self.V_MIN = 0
 
-#DRQN Parameters
-SEQUENCE_LENGTH=10
+        #Quantile Regression Parameters
+        self.QUANTILES=11
+
+        #DRQN Parameters
+        self.SEQUENCE_LENGTH=10
 
 
 '''

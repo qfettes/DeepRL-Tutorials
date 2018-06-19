@@ -5,15 +5,14 @@ import torch
 from agents.DQN import Model as DQN_Agent
 from networks.network_bodies import SimpleBody, AtariBody
 from networks.networks import QRDQN
-from utils.hyperparameters import QUANTILES, device
 
 class Model(DQN_Agent):
-    def __init__(self, static_policy=False, env=None):
-        self.num_quantiles = QUANTILES
-        self.cumulative_density = torch.tensor((2 * np.arange(self.num_quantiles) + 1) / (2.0 * self.num_quantiles), device=device, dtype=torch.float) 
+    def __init__(self, static_policy=False, env=None, config=None):
+        self.num_quantiles = config.QUANTILES
+        self.cumulative_density = torch.tensor((2 * np.arange(self.num_quantiles) + 1) / (2.0 * self.num_quantiles), device=config.device, dtype=torch.float) 
         self.quantile_weight = 1.0 / self.num_quantiles
 
-        super(Model, self).__init__(static_policy, env)
+        super(Model, self).__init__(static_policy, env, config)
     
     
     def declare_networks(self):
@@ -24,7 +23,7 @@ class Model(DQN_Agent):
         batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights = batch_vars
 
         with torch.no_grad():
-            quantiles_next = torch.zeros((self.batch_size, self.num_quantiles), device=device, dtype=torch.float)
+            quantiles_next = torch.zeros((self.batch_size, self.num_quantiles), device=self.device, dtype=torch.float)
             if not empty_next_state_values:
                 self.target_model.sample_noise()
                 max_next_action = self.get_max_next_state_action(non_final_next_states)
@@ -60,7 +59,7 @@ class Model(DQN_Agent):
     def get_action(self, s, eps):
         with torch.no_grad():
             if np.random.random() >= eps or self.static_policy or self.noisy:
-                X = torch.tensor([s], device=device, dtype=torch.float) 
+                X = torch.tensor([s], device=self.device, dtype=torch.float) 
                 self.model.sample_noise()
                 a = (self.model(X) * self.quantile_weight).sum(dim=2).max(dim=1)[1]
                 return a.item()

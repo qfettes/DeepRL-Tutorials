@@ -5,18 +5,17 @@ import torch
 from agents.DQN import Model as DQN_Agent
 from networks.network_bodies import SimpleBody, AtariBody
 from networks.networks import CategoricalDQN
-from utils.hyperparameters import ATOMS, V_MAX, V_MIN, device
 
 
 class Model(DQN_Agent):
-    def __init__(self, static_policy=False, env=None):
-        self.atoms = ATOMS
-        self.v_max = V_MAX
-        self.v_min = V_MIN
-        self.supports = torch.linspace(self.v_min, self.v_max, self.atoms).view(1, 1, self.atoms).to(device)
+    def __init__(self, static_policy=False, env=None, config=None):
+        self.atoms = config.ATOMS
+        self.v_max = config.V_MAX
+        self.v_min = config.V_MIN
+        self.supports = torch.linspace(self.v_min, self.v_max, self.atoms).view(1, 1, self.atoms).to(config.device)
         self.delta = (self.v_max - self.v_min) / (self.atoms - 1)
 
-        super(Model, self).__init__(static_policy, env)
+        super(Model, self).__init__(static_policy, env, config)
 
     def declare_networks(self):
         self.model = CategoricalDQN(self.env.observation_space.shape, self.env.action_space.n, noisy=self.noisy, sigma_init=self.sigma_init, atoms=self.atoms)
@@ -26,7 +25,7 @@ class Model(DQN_Agent):
         batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights = batch_vars
 
         with torch.no_grad():
-            max_next_dist = torch.zeros((self.batch_size, 1, self.atoms), device=device, dtype=torch.float) + 1. / self.atoms
+            max_next_dist = torch.zeros((self.batch_size, 1, self.atoms), device=self.device, dtype=torch.float) + 1. / self.atoms
             if not empty_next_state_values:
                 max_next_action = self.get_max_next_state_action(non_final_next_states)
                 self.target_model.sample_noise()
@@ -71,7 +70,7 @@ class Model(DQN_Agent):
     def get_action(self, s, eps):
         with torch.no_grad():
             if np.random.random() >= eps or self.static_policy or self.noisy:
-                X = torch.tensor([s], device=device, dtype=torch.float) 
+                X = torch.tensor([s], device=self.device, dtype=torch.float) 
                 self.model.sample_noise()
                 a = self.model(X) * self.supports
                 a = a.sum(dim=2).max(1)[1].view(1, 1)
