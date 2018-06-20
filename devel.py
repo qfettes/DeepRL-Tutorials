@@ -61,17 +61,22 @@ config.QUANTILES=21
 config.SEQUENCE_LENGTH=8
 
 
-def plot(frame_idx, rewards, losses, elapsed_time):
-    #clear_output(True)
-    '''plt.figure(figsize=(20,5))
+def plot(frame_idx, rewards, losses, sigma, elapsed_time):
+    clear_output(True)
+    plt.figure(figsize=(20,5))
     plt.subplot(131)
     plt.title('frame %s. reward: %s. time: %s' % (frame_idx, np.mean(rewards[-10:]), elapsed_time))
     plt.plot(rewards)
-    plt.subplot(132)
-    plt.title('loss')
-    plt.plot(losses)
-    plt.show()'''
-    print('frame %s. reward: %s. time: %s' % (frame_idx, np.mean(rewards[-10:]), elapsed_time))
+    if losses:
+        plt.subplot(132)
+        plt.title('loss')
+        plt.plot(losses)
+    if sigma:
+        plt.subplot(133)
+        plt.title('noisy param magnitude')
+        plt.plot(sigma)
+    plt.show()
+    #print('frame %s. reward: %s. time: %s' % (frame_idx, np.mean(rewards[-10:]), elapsed_time))
 
 
 if __name__=='__main__':
@@ -85,8 +90,6 @@ if __name__=='__main__':
     #env = wrappers.Monitor(env, 'Delete', force=True)
     model = Model(env=env, config=config)
 
-    losses = []
-    all_rewards = []
     episode_reward = 0
 
     observation = env.reset()
@@ -98,20 +101,19 @@ if __name__=='__main__':
         observation, reward, done, _ = env.step(action)
         observation = None if done else observation
 
-        loss = model.update(prev_observation, action, reward, observation, frame_idx)
+        model.update(prev_observation, action, reward, observation, frame_idx)
         episode_reward += reward
         
         if done:
             model.finish_nstep()
             model.reset_hx()
             observation = env.reset()
-            all_rewards.append(episode_reward)
+            model.save_reward(episode_reward)
             episode_reward = 0
             
-        if loss is not None:
-            losses.append(loss)
             
         if frame_idx % 10000 == 0:
-            plot(frame_idx, all_rewards, losses, timedelta(seconds=int(timer()-start)))
+            plot(frame_idx, model.rewards, model.losses, model.sigma_parameter_mag, timedelta(seconds=int(timer()-start)))
 
+    model.save_w()
     env.close()

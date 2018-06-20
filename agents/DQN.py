@@ -3,12 +3,13 @@ import numpy as np
 import torch
 import torch.optim as optim
 
+from agents.BaseAgent import BaseAgent
 from networks.networks import DQN
 from utils.ReplayMemory import ExperienceReplayMemory, PrioritizedReplayMemory
 
 from timeit import default_timer as timer
 
-class Model(object):
+class Model(BaseAgent):
     def __init__(self, static_policy=False, env=None, config=None):
         super(Model, self).__init__()
         self.device = config.device
@@ -142,7 +143,8 @@ class Model(object):
         self.optimizer.step()
 
         self.update_target_model()
-        return loss.item()
+        self.save_loss(loss.item())
+        self.save_sigma_param_magnitudes()
 
     def get_action(self, s, eps=0.1):
         with torch.no_grad():
