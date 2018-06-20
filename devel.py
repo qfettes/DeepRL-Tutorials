@@ -13,7 +13,7 @@ import math
 
 from utils.wrappers import *
 from utils.hyperparameters import Config
-from agents.Rainbow import Model
+from agents.DRQN import Model
 
 config = Config()
 

@@ -181,8 +181,8 @@ class DuelingQRDQN(nn.Module):
         self.adv1 = nn.Linear(self.body.feature_size(), 512) if not self.noisy else NoisyLinear(self.body.feature_size(), 512, sigma_init)
         self.adv2 = nn.Linear(512, self.num_actions*self.quantiles) if not self.noisy else NoisyLinear(512, self.num_actions*self.quantiles, sigma_init)
 
-        self.val1 = nn.Linear(self.body.feature_size(), 512) if not self.noisy else NoisyLinear(self.body.feature_size(), 512, sigma_init).eval()
-        self.val2 = nn.Linear(512, 1*self.quantiles) if not self.noisy else NoisyLinear(512, 1*self.quantiles, sigma_init).eval()
+        self.val1 = nn.Linear(self.body.feature_size(), 512) if not self.noisy else NoisyLinear(self.body.feature_size(), 512, sigma_init)
+        self.val2 = nn.Linear(512, 1*self.quantiles) if not self.noisy else NoisyLinear(512, 1*self.quantiles, sigma_init)
 
         
     def forward(self, x):
@@ -210,37 +210,38 @@ class DuelingQRDQN(nn.Module):
 ########Recurrent Architectures#########
 
 class DRQN(nn.Module):
-    def __init__(self, input_shape, num_actions, noisy=False, sigma_init=0.5, body=SimpleBody, gru_size=512, bidirectional=False):
+    def __init__(self, input_shape, num_actions, noisy=False, sigma_init=0.5, gru_size=512, bidirectional=False, body=SimpleBody):
         super(DRQN, self).__init__()
         
         self.input_shape = input_shape
         self.num_actions = num_actions
-        self.noisy=noisy
+        self.noisy = noisy
         self.gru_size = gru_size
         self.bidirectional = bidirectional
         self.num_directions = 2 if self.bidirectional else 1
 
-        self.body = body(input_shape, num_actions, noisy, sigma_init)
-        self.gru = nn.GRUCell(self.body.feature_size(), self.gru_size)
+        self.body = body(input_shape, num_actions, noisy=self.noisy, sigma_init=sigma_init)
+        self.gru = nn.GRU(self.body.feature_size(), self.gru_size, num_layers=1, batch_first=True, bidirectional=bidirectional)
         self.fc2 = nn.Linear(self.gru_size, self.num_actions) if not self.noisy else NoisyLinear(self.gru_size, self.num_actions, sigma_init)
         
     def forward(self, x, hx=None):
         batch_size = x.size(0)
-        x = x.transpose(0, 1)
-
+        sequence_length = x.size(1)
+        
+        x = x.view((-1,)+self.input_shape)
+        
+        #format outp for batch first gru
+        feats = self.body(x).view(batch_size, sequence_length, -1)
         hidden = self.init_hidden(batch_size) if hx is None else hx
-        for i in range(x.size(0)):
-            feats = self.body(x[i]).view(batch_size, -1)
-            hidden = self.gru(feats, hidden)
-
-        x = self.fc2(hidden)
+        out, hidden = self.gru(feats, hidden)
+        x = self.fc2(out)
 
         return x, hidden
 
+    def init_hidden(self, batch_size):
+        return torch.zeros(1*self.num_directions, batch_size, self.gru_size, device=device, dtype=torch.float)
+    
     def sample_noise(self):
         if self.noisy:
             self.body.sample_noise()
             self.fc2.sample_noise()
-
-    def init_hidden(self, batch_size):
-        return torch.zeros(batch_size, self.gru_size, device=device, dtype=torch.float)
