@@ -172,9 +172,5 @@ class Model(BaseAgent):
 
             self.memory.push((state, action, R, None))
 
-    def huber(self, x):
-        cond = (x.abs() < 1.0).float().detach()
-        return 0.5 * x.pow(2) * cond + (x.abs() - 0.5) * (1.0 - cond)
-
     def reset_hx(self):
         pass

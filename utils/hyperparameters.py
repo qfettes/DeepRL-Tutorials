@@ -6,6 +6,12 @@ class Config(object):
     def __init__(self):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+        #a2c controls
+        self.num_agents = 8
+        self.rollout = 16
+        self.value_loss_weight = 0.5
+        self.entropy_loss_weight = 0.001
+
         #algorithm control
         self.USE_NOISY_NETS=False
         self.USE_PRIORITY_REPLAY=False
