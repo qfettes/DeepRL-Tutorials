@@ -2,10 +2,12 @@ import numpy as np
 
 import torch
 import torch.optim as optim
+import torch.nn as nn
 import torch.nn.functional as F
 
 from agents.BaseAgent import BaseAgent
 from networks.networks import ActorCritic
+from utils.RolloutStorage import RolloutStorage
 
 from timeit import default_timer as timer
 
@@ -25,106 +27,106 @@ class Model(BaseAgent):
         self.num_agents = config.num_agents
         self.value_loss_weight = config.value_loss_weight
         self.entropy_loss_weight = config.entropy_loss_weight
+        self.rollout = config.rollout
+        self.grad_norm_max = config.grad_norm_max
 
         self.static_policy = static_policy
         self.num_feats = env.observation_space.shape
+        self.num_feats = (self.num_feats[0] * 4, *self.num_feats[1:])
         self.num_actions = env.action_space.n
         self.env = env
 
         self.declare_networks()
             
-        self.target_model.load_state_dict(self.model.state_dict())
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
+        self.optimizer = optim.RMSprop(self.model.parameters(), lr=self.lr, alpha=0.99, eps=1e-5)
         
         #move to correct device
         self.model = self.model.to(self.device)
-        self.target_model.to(self.device)
 
         if self.static_policy:
             self.model.eval()
-            self.target_model.eval()
         else:
             self.model.train()
-            self.target_model.train()
 
-        self.update_count = 0
+        self.rollouts = RolloutStorage(self.rollout, self.num_agents,
+            self.num_feats, self.env.action_space, self.device)
 
-        self.nsteps = config.N_STEPS
-        self.nstep_buffer = []
+        self.value_losses = []
+        self.entropy_losses = []
+        self.policy_losses = []
+
 
     def declare_networks(self):
-        self.model = ActorCritic(self.num_feats, self.num_actions, noisy=self.noisy, sigma_init=self.sigma_init)
-        self.target_model = ActorCritic(self.num_feats, self.num_actions, noisy=self.noisy, sigma_init=self.sigma_init)
+        self.model = ActorCritic(self.num_feats, self.num_actions)
 
-    def get_action(self, s, eps=0.1):
-        X = torch.tensor(s, device=self.device, dtype=torch.float)
-        self.model.sample_noise()
-        policy, value = self.model(X)
-        return policy, value
+    def get_action(self, s, deterministic=False):
+        logits, values = self.model(s)
+        dist = torch.distributions.Categorical(logits=logits)
 
-    def process_rollout(self, mem):
-        _, _, _, _, last_values = mem[-1]
-        returns = last_values
+        if deterministic:
+            actions = dist.probs.argmax(dim=1, keepdim=True)
+        else:
+            actions = dist.sample().view(-1, 1)
 
-        advantages = torch.zeros(self.num_agents, 1, device=self.device, dtype=torch.float)
+        log_probs = F.log_softmax(logits, dim=1)
+        action_log_probs = log_probs.gather(1, actions)
 
-        out = [None] * (len(mem) - 1)
+        return values, actions, action_log_probs
+        
 
-        # run Generalized Advantage Estimation, calculate returns, advantages
-        for t in reversed(range(len(mem) - 1)):
-            rewards, actions, masks, policies, values = mem[t]
-            _, _, _, _, next_values = mem[t + 1]
+    def evaluate_actions(self, s, actions):
+        logits, values = self.model(s)
 
-            with torch.no_grad():
-                rewards = torch.tensor(rewards, device=self.device, dtype=torch.float).view(-1, 1)
-                actions = torch.tensor(actions, device=self.device, dtype=torch.long).view(-1, 1)
-                masks = torch.tensor(masks, device=self.device, dtype=torch.float).view(-1, 1)
+        dist = torch.distributions.Categorical(logits=logits)
 
-                returns = rewards + returns * self.gamma * masks
+        log_probs = F.log_softmax(logits, dim=1)
+        action_log_probs = log_probs.gather(1, actions)
 
-                deltas = rewards + next_values * self.gamma * masks - values
-                advantages = advantages * self.gamma * 1.00 * masks + deltas
+        dist_entropy = dist.entropy().mean()
 
-            out[t] = actions, policies, values, returns, advantages
+        return values, action_log_probs, dist_entropy
 
-            
-        a, p, v, r, adv = zip(*out)
-        a = torch.cat(a, 0)
-        p = torch.cat(p, 0)
-        v = torch.cat(v, 0)
-        r = torch.cat(r, 0)
-        adv = torch.cat(adv, 0)
+    def get_values(self, s):
+        _, values = self.model(s)
 
-        return a, p, v, r, adv
+        return values
 
-    def compute_loss(self, rollout):
-        actions, policies, values, returns, advantages = rollout
+    def compute_loss(self, rollouts):
+        obs_shape = rollouts.observations.size()[2:]
+        action_shape = rollouts.actions.size()[-1]
+        num_steps, num_processes, _ = rollouts.rewards.size()
 
-        probs = F.softmax(policies, dim=1)
-        log_probs = F.log_softmax(policies, dim=1)
-        log_action_probs = log_probs.gather(1, actions)
+        values, action_log_probs, dist_entropy = self.evaluate_actions(
+            rollouts.observations[:-1].view(-1, *obs_shape),
+            rollouts.actions.view(-1, 1))
 
-        policy_loss = (-log_action_probs * advantages.detach()).mean()
-        value_loss = (.5 * (values - returns) ** 2.).mean()
-        entropy_loss = (log_probs * probs).sum(dim=1).mean()
+        values = values.view(num_steps, num_processes, 1)
+        action_log_probs = action_log_probs.view(num_steps, num_processes, 1)
 
-        loss = policy_loss + value_loss * self.value_loss_weight + entropy_loss * self.entropy_loss_weight
+        advantages = rollouts.returns[:-1] - values
+        value_loss = advantages.pow(2).mean()
 
-        return loss
+        action_loss = -(advantages.detach() * action_log_probs).mean()
 
-    def update(self, mem):
-        # bootstrap discounted returns with final value estimates
-        rollout = self.process_rollout(mem)
+        loss = action_loss + self.value_loss_weight * value_loss - self.entropy_loss_weight * dist_entropy
 
-        loss = self.compute_loss(rollout)
+        return loss, action_loss, value_loss, dist_entropy
 
-        #nn.utils.clip_grad_norm(net.parameters(), args.grad_norm_limit)
+    def update(self, rollout):
+        loss, action_loss, value_loss, dist_entropy = self.compute_loss(rollout)
+
         self.optimizer.zero_grad()
         loss.backward()
-        for param in self.model.parameters():
-            param.grad.data.clamp_(-1, 1)
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_norm_max)
         self.optimizer.step()
 
-        #self.update_target_model()
-        self.save_loss(loss.item())
-        self.save_sigma_param_magnitudes()
+        self.save_loss(loss.item(), action_loss.item(), value_loss.item(), dist_entropy.item())
+        #self.save_sigma_param_magnitudes()
+
+        return value_loss.item(), action_loss.item(), dist_entropy.item()
+
+    def save_loss(self, loss, policy_loss, value_loss, entropy_loss):
+        super(Model, self).save_loss(loss)
+        self.policy_losses.append(policy_loss)
+        self.value_losses.append(value_loss)
+        self.entropy_losses.append(entropy_loss)

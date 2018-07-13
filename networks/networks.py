@@ -248,33 +248,48 @@ class DRQN(nn.Module):
 
 
 ########Actor Critic Architectures#########
-
 class ActorCritic(nn.Module):
-    def __init__(self, input_shape, num_actions, noisy=False, sigma_init=0.5, body=SimpleBody):
+    def __init__(self, input_shape, num_actions):
         super(ActorCritic, self).__init__()
-        
-        self.input_shape = input_shape
-        self.num_actions = num_actions
-        self.noisy = noisy
 
-        self.body = body(input_shape, num_actions, noisy=self.noisy, sigma_init=sigma_init)
-        self.fc1 = nn.Linear(self.body.feature_size(), 512) if not self.noisy else NoisyLinear(self.body.feature_size(), 512, sigma_init)
+        init_ = lambda m: self.layer_init(m, nn.init.orthogonal_,
+                    lambda x: nn.init.constant_(x, 0),
+                    nn.init.calculate_gain('relu'))
 
-        self.actor = nn.Linear(512, self.num_actions) if not self.noisy else NoisyLinear(512, self.num_actions, std_init=sigma_init)
-        self.critic = nn.Linear(512, 1) if not self.noisy else NoisyLinear(512, 1, std_init=sigma_init)
-        
-    def forward(self, x, hx=None):
-        x = self.body(x)
+        self.conv1 = init_(nn.Conv2d(input_shape[0], 32, kernel_size=8, stride=4))
+        self.conv2 = init_(nn.Conv2d(32, 64, kernel_size=4, stride=2))
+        self.conv3 = init_(nn.Conv2d(64, 32, kernel_size=3, stride=1))
+        self.fc1 = init_(nn.Linear(self.feature_size(input_shape), 512))
+
+        init_ = lambda m: self.layer_init(m, nn.init.orthogonal_,
+          lambda x: nn.init.constant_(x, 0))
+
+        self.critic_linear = init_(nn.Linear(512, 1))
+
+        init_ = lambda m: self.layer_init(m, nn.init.orthogonal_,
+              lambda x: nn.init.constant_(x, 0), gain=0.01)
+
+        self.actor_linear = init_(nn.Linear(512, num_actions))
+
+        self.train()
+
+    def forward(self, inputs):
+        x = F.relu(self.conv1(inputs/255.0))
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
+        x = x.view(x.size(0), -1)
+
         x = F.relu(self.fc1(x))
 
-        act = self.actor(x)
-        crit = self.critic(x)
+        value = self.critic_linear(x)
+        logits = self.actor_linear(x)
 
-        return F.softmax(act, dim=1), crit
+        return logits, value
 
-    def sample_noise(self):
-        if self.noisy:
-            self.body.sample_noise()
-            self.fc1.sample_noise()
-            self.actor.sample_noise()
-            self.critic.sample_noise()
+    def feature_size(self, input_shape):
+        return self.conv3(self.conv2(self.conv1(torch.zeros(1, *input_shape)))).view(1, -1).size(1)
+
+    def layer_init(self, module, weight_init, bias_init, gain=1):
+        weight_init(module.weight.data, gain=gain)
+        bias_init(module.bias.data)
+        return module

@@ -11,6 +11,7 @@ class Config(object):
         self.rollout = 16
         self.value_loss_weight = 0.5
         self.entropy_loss_weight = 0.001
+        self.grad_norm_max = 0.5
 
         #algorithm control
         self.USE_NOISY_NETS=False

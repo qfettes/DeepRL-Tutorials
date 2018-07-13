@@ -1,21 +1,40 @@
 import gym
+gym.logger.set_level(40)
+
 import numpy as np
+
+import torch
+import torch.nn.functional as F
 
 from IPython.display import clear_output
 import matplotlib
-matplotlib.use("agg")
-from matplotlib import pyplot as plt
-#%matplotlib inline
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+plt.switch_backend('agg')
 
 from timeit import default_timer as timer
 from datetime import timedelta
-import math
-from random import randint
+import os
+import glob
 
-from utils.wrappers import *
-from utils.subprocess_vec_env import *
+from utils.wrappers import make_env_a2c_atari
+from utils.plot import visdom_plot
+from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
+from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
+
 from utils.hyperparameters import Config
 from agents.A2C import Model
+
+use_vis=True
+port=8097
+log_dir = "/tmp/gym/"
+
+try:
+    os.makedirs(log_dir)
+except OSError:
+    files = glob.glob(os.path.join(log_dir, '*.monitor.csv'))
+    for f in files:
+        os.remove(f)
 
 config = Config()
 
@@ -23,113 +42,113 @@ config = Config()
 config.num_agents=16
 config.rollout=5
 
-#algorithm control
-config.USE_NOISY_NETS=False
-config.USE_PRIORITY_REPLAY=False
-
 #misc agent variables
 config.GAMMA=0.99
-config.LR=3e-4
+config.LR=7e-4
+config.entropy_loss_weight=0.01
+config.value_loss_weight=0.5
 
-#Noisy Nets
-config.SIGMA_INIT=0.5
-
-config.MAX_FRAMES=100000000
-
-#Categorical Params
-config.ATOMS = 51
-config.V_MAX = 50
-config.V_MIN = 0
-
-#Quantile Regression Parameters
-config.QUANTILES=21
-
-#DRQN Parameters
-config.SEQUENCE_LENGTH=8
-
-
-def plot(frame_idx, rewards, losses, sigma, elapsed_time):
-    '''clear_output(True)
-    plt.figure(figsize=(20,5))
-    plt.subplot(131)
-    plt.title('frame %s. reward: %s. time: %s' % (frame_idx, np.mean(rewards[-10:]), elapsed_time))
-    plt.plot(rewards)
-    if losses:
-        plt.subplot(132)
-        plt.title('loss')
-        plt.plot(losses)
-    if sigma:
-        plt.subplot(133)
-        plt.title('noisy param magnitude')
-        plt.plot(sigma)
-    plt.show()'''
-    print('frame %s. reward: %s. time: %s' % (frame_idx, np.mean(rewards[-10:]), elapsed_time))
+config.MAX_FRAMES=1e7
 
 
 if __name__=='__main__':
-    def make_env_cartpole(env_name):
-        def _thunk():
-            env = gym.make(env_name)
-            return env
+    seed = 1
 
-        return _thunk
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
 
-    def make_env_atari(env_name):
-        def _thunk():
-            env = make_atari(env_name)
-            env = wrap_deepmind(env, frame_stack=False)
-            env = wrap_pytorch(env)
-            return env
+    torch.set_num_threads(1)
 
-        return _thunk
+    if use_vis:
+        from visdom import Visdom
+        viz = Visdom(port=port)
+        win = None
 
-    start=timer()
+    env_id = "PongNoFrameskip-v4"
+    envs = [make_env_a2c_atari(env_id, seed, i, log_dir) for i in range(config.num_agents)]
+    envs = SubprocVecEnv(envs) if config.num_agents > 1 else DummyVecEnv(envs)
 
-    envs = []
-    seed = randint(0,100)
-    #env_id = "PongNoFrameskip-v4"
-    #envs = [make_env_atari(env_id) for i in range(config.num_agents)]
-    env_id = "CartPole-v0"
-    envs = [make_env_cartpole(env_id) for i in range(config.num_agents)]
-    envs = SubprocVecEnv(envs)
+    obs_shape = envs.observation_space.shape
+    obs_shape = (obs_shape[0] * 4, *obs_shape[1:])
 
     model = Model(env=envs, config=config)
 
+    current_obs = torch.zeros(config.num_agents, *obs_shape,
+                    device=config.device, dtype=torch.float)
+
+    def update_current_obs(obs):
+        shape_dim0 = envs.observation_space.shape[0]
+        obs = torch.from_numpy(obs.astype(np.float32)).to(config.device)
+        current_obs[:, :-shape_dim0] = current_obs[:, shape_dim0:]
+        current_obs[:, -shape_dim0:] = obs
+
+    obs = envs.reset()
+    update_current_obs(obs)
+
+    model.rollouts.observations[0].copy_(current_obs)
+    
+    episode_rewards = np.zeros(config.num_agents, dtype=np.float)
+    final_rewards = np.zeros(config.num_agents, dtype=np.float)
+
+    start=timer()
+
     frame_idx = 1
-    print_step = 10000
-    episode_reward = np.zeros(config.num_agents)
-    rollout_mem = []
+    print_step = 1
+    print_threshold = 10
+    
+    while frame_idx < config.MAX_FRAMES:
+        for step in range(config.rollout):
+            with torch.no_grad():
+                values, actions, action_log_prob = model.get_action(model.rollouts.observations[step])
+            cpu_actions = actions.view(-1).cpu().numpy()
+    
+            obs, reward, done, _ = envs.step(cpu_actions)
 
-    observations = envs.reset()
-    while frame_idx < config.MAX_FRAMES+1:
-        for i in range(config.rollout):
-            mask = np.ones(config.num_agents)
-            policy, value = model.get_action(observations)
+            episode_rewards += reward
+            masks = 1. - done.astype(np.float32)
+            final_rewards *= masks
+            final_rewards += (1. - masks) * episode_rewards
+            episode_rewards *= masks
 
-            actions = policy.multinomial(1).cpu().numpy().ravel()
+            rewards = torch.from_numpy(reward.astype(np.float32)).view(-1, 1).to(config.device)
+            masks = torch.from_numpy(masks).to(config.device).view(-1, 1)
 
-            prev_observations=observations
-            observations, rewards, dones, _ = envs.step(actions)
-            episode_reward += rewards
-            for j in range(config.num_agents):
-                if dones[j]:
-                    #no reset needed?
-                    mask[j] = 0.0
-                    model.save_reward(episode_reward[j])
-                    episode_reward[j] = 0.0
+            current_obs *= masks.view(-1, 1, 1, 1)
+            update_current_obs(obs)
+
+            model.rollouts.insert(current_obs, actions.view(-1, 1), action_log_prob, values, rewards, masks)
             
-            frame_idx+=config.num_agents
-            rollout_mem.append((rewards, actions, mask, policy, value))
+        with torch.no_grad():
+            next_value = model.get_values(model.rollouts.observations[-1])
 
-        _, value = model.get_action(observations)
-        rollout_mem.append((None, None, None, None, value))
+        model.rollouts.compute_returns(next_value, config.GAMMA)
             
-        model.update(rollout_mem)
-        rollout_mem=[]
+        value_loss, action_loss, dist_entropy = model.update(model.rollouts)
+        
+        model.rollouts.after_update()
+
+        if frame_idx % print_threshold == 0:
+            end = timer()
+            total_num_steps = (frame_idx + 1) * config.num_agents * config.rollout
+            print("Updates {}, num timesteps {}, FPS {}, mean/median reward {:.1f}/{:.1f}, min/max reward {:.1f}/{:.1f}, entropy {:.5f}, value loss {:.5f}, policy loss {:.5f}".
+                format(frame_idx, total_num_steps,
+                       int(total_num_steps / (end - start)),
+                       np.mean(final_rewards),
+                       np.median(final_rewards),
+                       np.min(final_rewards),
+                       np.max(final_rewards), dist_entropy,
+                       value_loss, action_loss))
+
+        if use_vis and frame_idx % 100 == 0:
+            try:
+                # Sometimes monitor doesn't properly flush the outputs
+                win = visdom_plot(viz, win, log_dir, "PongNoFrameskip-v4",
+                                  'a2c-Q', 1e7)
+            except IOError:
+                pass
                 
-        if frame_idx > print_step:
-            plot(frame_idx, model.rewards, model.losses, model.sigma_parameter_mag, timedelta(seconds=int(timer()-start)))
-            print_step += 10000
+        frame_idx += 1
 
     model.save_w()
     envs.close()
