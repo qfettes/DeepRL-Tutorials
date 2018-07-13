@@ -48,7 +48,7 @@ config.LR=7e-4
 config.entropy_loss_weight=0.01
 config.value_loss_weight=0.5
 
-config.MAX_FRAMES=1e7
+config.MAX_FRAMES=int(1e7 / config.num_agents / config.rollout)
 
 
 if __name__=='__main__':
@@ -93,11 +93,10 @@ if __name__=='__main__':
 
     start=timer()
 
-    frame_idx = 1
     print_step = 1
     print_threshold = 10
     
-    while frame_idx < config.MAX_FRAMES:
+    for frame_idx in range(1, config.MAX_FRAMES+1):
         for step in range(config.rollout):
             with torch.no_grad():
                 values, actions, action_log_prob = model.get_action(model.rollouts.observations[step])
@@ -148,7 +147,6 @@ if __name__=='__main__':
             except IOError:
                 pass
                 
-        frame_idx += 1
 
     model.save_w()
     envs.close()
