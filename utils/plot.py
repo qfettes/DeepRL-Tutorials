@@ -118,7 +118,7 @@ def plot(folder, game, name, num_steps, bin_size=100, smooth=1):
     if tx is None or ty is None:
         return
 
-    fig = plt.figure(figsize=(20,10))
+    fig = plt.figure(figsize=(20,5))
     plt.plot(tx, ty, label="{}".format(name))
 
     tick_fractions = np.array([0.1, 0.2, 0.4, 0.6, 0.8, 1.0])

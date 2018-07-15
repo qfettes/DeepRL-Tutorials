@@ -143,10 +143,9 @@ if __name__=='__main__':
             try:
                 # Sometimes monitor doesn't properly flush the outputs
                 win = visdom_plot(viz, win, log_dir, "PongNoFrameskip-v4",
-                                  'a2c-Q', 1e7)
+                                  'a2c-Q', config.MAX_FRAMES * config.num_agents * config.rollout)
             except IOError:
                 pass
-                
 
     model.save_w()
     envs.close()
