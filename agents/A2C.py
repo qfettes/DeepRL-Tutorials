@@ -49,7 +49,7 @@ class Model(BaseAgent):
             self.model.train()
 
         self.rollouts = RolloutStorage(self.rollout, self.num_agents,
-            self.num_feats, self.env.action_space, self.device)
+            self.num_feats, self.env.action_space, self.device, config.USE_GAE, config.gae_tau)
 
         self.value_losses = []
         self.entropy_losses = []

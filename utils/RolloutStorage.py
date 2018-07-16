@@ -1,7 +1,7 @@
 import torch
 
 class RolloutStorage(object):
-    def __init__(self, num_steps, num_processes, obs_shape, action_space, device):
+    def __init__(self, num_steps, num_processes, obs_shape, action_space, device, USE_GAE=True, gae_tau=0.95):
         self.observations = torch.zeros(num_steps + 1, num_processes, *obs_shape).to(device)
         self.rewards = torch.zeros(num_steps, num_processes, 1).to(device)
         self.value_preds = torch.zeros(num_steps + 1, num_processes, 1).to(device)
@@ -12,6 +12,8 @@ class RolloutStorage(object):
 
         self.num_steps = num_steps
         self.step = 0
+        self.gae = USE_GAE
+        self.gae_tau = gae_tau
 
     def insert(self, current_obs, action, action_log_prob, value_pred, reward, mask):
         self.observations[self.step + 1].copy_(current_obs)
@@ -28,7 +30,15 @@ class RolloutStorage(object):
         self.masks[0].copy_(self.masks[-1])
 
     def compute_returns(self, next_value, gamma):
-        self.returns[-1] = next_value
-        for step in reversed(range(self.rewards.size(0))):
-            self.returns[step] = self.returns[step + 1] * \
-                gamma * self.masks[step + 1] + self.rewards[step]
+        if self.gae:
+            self.value_preds[-1] = next_value
+            gae = 0
+            for step in reversed(range(self.rewards.size(0))):
+                delta = self.rewards[step] + gamma * self.value_preds[step + 1] * self.masks[step + 1] - self.value_preds[step]
+                gae = delta + gamma * self.gae_tau * self.masks[step + 1] * gae
+                self.returns[step] = gae + self.value_preds[step]
+        else:
+            self.returns[-1] = next_value
+            for step in reversed(range(self.rewards.size(0))):
+                self.returns[step] = self.returns[step + 1] * \
+                    gamma * self.masks[step + 1] + self.rewards[step]

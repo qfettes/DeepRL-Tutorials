@@ -12,6 +12,8 @@ class Config(object):
         self.value_loss_weight = 0.5
         self.entropy_loss_weight = 0.001
         self.grad_norm_max = 0.5
+        self.USE_GAE=True
+        self.gae_tau = 0.95
 
         #algorithm control
         self.USE_NOISY_NETS=False

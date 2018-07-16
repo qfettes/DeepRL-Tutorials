@@ -41,6 +41,8 @@ config = Config()
 #a2c control
 config.num_agents=16
 config.rollout=5
+config.USE_GAE = True
+config.gae_tau = 0.95
 
 #misc agent variables
 config.GAMMA=0.99
