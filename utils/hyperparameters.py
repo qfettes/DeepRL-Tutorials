@@ -6,6 +6,11 @@ class Config(object):
     def __init__(self):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+        #PPO controls
+        self.ppo_epoch = 3
+        self.num_mini_batch = 32
+        self.ppo_clip_param = 0.1
+
         #a2c controls
         self.num_agents = 8
         self.rollout = 16

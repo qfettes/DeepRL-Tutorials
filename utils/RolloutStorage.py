@@ -1,4 +1,5 @@
 import torch
+from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
 
 class RolloutStorage(object):
     def __init__(self, num_steps, num_processes, obs_shape, action_space, device, USE_GAE=True, gae_tau=0.95):
@@ -42,3 +43,23 @@ class RolloutStorage(object):
             for step in reversed(range(self.rewards.size(0))):
                 self.returns[step] = self.returns[step + 1] * \
                     gamma * self.masks[step + 1] + self.rewards[step]
+
+    def feed_forward_generator(self, advantages, num_mini_batch):
+        num_steps, num_processes = self.rewards.size()[0:2]
+        batch_size = num_processes * num_steps
+        assert batch_size >= num_mini_batch, (
+            f"PPO requires the number processes ({num_processes}) "
+            f"* number of steps ({num_steps}) = {num_processes * num_steps} "
+            f"to be greater than or equal to the number of PPO mini batches ({num_mini_batch}).")
+        mini_batch_size = batch_size // num_mini_batch
+        sampler = BatchSampler(SubsetRandomSampler(range(batch_size)), mini_batch_size, drop_last=False)
+        for indices in sampler:
+            observations_batch = self.observations[:-1].view(-1,
+                                        *self.observations.size()[2:])[indices]
+            actions_batch = self.actions.view(-1, self.actions.size(-1))[indices]
+            return_batch = self.returns[:-1].view(-1, 1)[indices]
+            masks_batch = self.masks[:-1].view(-1, 1)[indices]
+            old_action_log_probs_batch = self.action_log_probs.view(-1, 1)[indices]
+            adv_targ = advantages.view(-1, 1)[indices]
+
+            yield observations_batch, actions_batch, return_batch, masks_batch, old_action_log_probs_batch, adv_targ

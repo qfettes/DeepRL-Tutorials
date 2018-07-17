@@ -23,7 +23,7 @@ from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
 from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
 
 from utils.hyperparameters import Config
-from agents.A2C import Model
+from agents.PPO import Model
 
 use_vis=True
 port=8097
@@ -38,9 +38,14 @@ except OSError:
 
 config = Config()
 
+#ppo control
+config.ppo_epoch = 3
+config.num_mini_batch = 32
+config.ppo_clip_param = 0.1
+
 #a2c control
-config.num_agents=16
-config.rollout=5
+config.num_agents=8
+config.rollout=128
 config.USE_GAE = True
 config.gae_tau = 0.95
 
@@ -48,7 +53,8 @@ config.gae_tau = 0.95
 config.GAMMA=0.99
 config.LR=7e-4
 config.entropy_loss_weight=0.01
-config.value_loss_weight=0.5
+config.value_loss_weight=1.0
+config.grad_norm_max = 0.5
 
 config.MAX_FRAMES=int(1e7 / config.num_agents / config.rollout)
 
