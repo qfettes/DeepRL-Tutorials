@@ -35,7 +35,7 @@ class Model(DQN_Agent):
                 max_next_action = self.get_max_next_state_action(non_final_next_states)
                 quantiles_next[non_final_mask] = self.target_model(non_final_next_states).gather(1, max_next_action).squeeze(dim=1)
 
-            quantiles_next = batch_reward + (self.gamma*quantiles_next)
+            quantiles_next = batch_reward + ((self.gamma**self.nsteps)*quantiles_next)
 
         return quantiles_next
     
