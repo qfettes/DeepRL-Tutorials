@@ -3,7 +3,7 @@ import numpy as np
 
 from IPython.display import clear_output
 import matplotlib
-matplotlib.use("agg")
+#matplotlib.use("agg")
 from matplotlib import pyplot as plt
 #%matplotlib inline
 
@@ -76,17 +76,17 @@ def plot(frame_idx, rewards, losses, sigma, elapsed_time):
         plt.title('noisy param magnitude')
         plt.plot(sigma)
     plt.show()
-    #print('frame %s. reward: %s. time: %s' % (frame_idx, np.mean(rewards[-10:]), elapsed_time))
+    print('frame %s. reward: %s. time: %s' % (frame_idx, np.mean(rewards[-10:]), elapsed_time))
 
 
 if __name__=='__main__':
     start=timer()
 
-    env_id = "PongNoFrameskip-v4"
+    '''env_id = "PongNoFrameskip-v4"
     env    = make_atari(env_id)
     env    = wrap_deepmind(env, frame_stack=False)
-    env    = wrap_pytorch(env)
-    #env = gym.make('CartPole-v0')
+    env    = wrap_pytorch(env)'''
+    env = gym.make('CartPole-v0')
     #env = wrappers.Monitor(env, 'Delete', force=True)
     model = Model(env=env, config=config)
 

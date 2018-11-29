@@ -293,3 +293,52 @@ class ActorCritic(nn.Module):
         weight_init(module.weight.data, gain=gain)
         bias_init(module.bias.data)
         return module
+
+    
+class ActorCriticER(nn.Module):
+    def __init__(self, input_shape, num_actions):
+        super(ActorCriticER, self).__init__()
+
+        init_ = lambda m: self.layer_init(m, nn.init.orthogonal_,
+                    lambda x: nn.init.constant_(x, 0),
+                    nn.init.calculate_gain('relu'))
+
+        self.conv1 = init_(nn.Conv2d(input_shape[0], 32, kernel_size=8, stride=4))
+        self.conv2 = init_(nn.Conv2d(32, 64, kernel_size=4, stride=2))
+        self.conv3 = init_(nn.Conv2d(64, 32, kernel_size=3, stride=1))
+        self.fc1 = init_(nn.Linear(self.feature_size(input_shape), 512))
+
+        init_ = lambda m: self.layer_init(m, nn.init.orthogonal_,
+          lambda x: nn.init.constant_(x, 0))
+
+        self.critic_linear = init_(nn.Linear(512, num_actions))
+
+        init_ = lambda m: self.layer_init(m, nn.init.orthogonal_,
+              lambda x: nn.init.constant_(x, 0), gain=0.01)
+
+        self.actor_linear = init_(nn.Linear(512, num_actions))
+
+        self.train()
+
+    def forward(self, inputs):
+        x = F.relu(self.conv1(inputs/255.0))
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
+        x = x.view(x.size(0), -1)
+
+        x = F.relu(self.fc1(x))
+
+        q_value = self.critic_linear(x)
+        logits = self.actor_linear(x)
+        policy = F.softmax(logits, dim=1) 
+        value = (policy * q_value).sum(-1, keepdim=True)
+
+        return logits, policy, value, q_value
+
+    def feature_size(self, input_shape):
+        return self.conv3(self.conv2(self.conv1(torch.zeros(1, *input_shape)))).view(1, -1).size(1)
+
+    def layer_init(self, module, weight_init, bias_init, gain=1):
+        weight_init(module.weight.data, gain=gain)
+        bias_init(module.bias.data)
+        return module
