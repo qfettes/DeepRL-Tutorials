@@ -51,6 +51,7 @@ class Config(object):
         #Learning control variables
         self.LEARN_START = 10000
         self.MAX_FRAMES=100000
+        self.UPDATE_FREQ = 1
 
         #Categorical Params
         self.ATOMS = 51

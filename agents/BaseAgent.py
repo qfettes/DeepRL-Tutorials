@@ -19,6 +19,9 @@ class BaseAgent(object):
         cond = (x.abs() < 1.0).float().detach()
         return 0.5 * x.pow(2) * cond + (x.abs() - 0.5) * (1.0 - cond)
 
+    def MSE(self, x):
+        return 0.5 * x.pow(2)
+
     def save_w(self):
         torch.save(self.model.state_dict(), './saved_agents/model.dump')
         torch.save(self.optimizer.state_dict(), './saved_agents/optim.dump')

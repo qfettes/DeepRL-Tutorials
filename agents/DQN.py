@@ -24,6 +24,7 @@ class Model(BaseAgent):
         self.experience_replay_size = config.EXP_REPLAY_SIZE
         self.batch_size = config.BATCH_SIZE
         self.learn_start = config.LEARN_START
+        self.update_freq = config.UPDATE_FREQ
         self.sigma_init= config.SIGMA_INIT
         self.priority_beta_start = config.PRIORITY_BETA_START
         self.priority_beta_frames = config.PRIORITY_BETA_FRAMES
@@ -58,8 +59,8 @@ class Model(BaseAgent):
         self.nstep_buffer = []
 
     def declare_networks(self):
-        self.model = DQN(self.num_feats, self.num_actions, noisy=self.noisy, sigma_init=self.sigma_init, body=SimpleBody)
-        self.target_model = DQN(self.num_feats, self.num_actions, noisy=self.noisy, sigma_init=self.sigma_init, body=SimpleBody)
+        self.model = DQN(self.num_feats, self.num_actions, noisy=self.noisy, sigma_init=self.sigma_init, body=AtariBody)
+        self.target_model = DQN(self.num_feats, self.num_actions, noisy=self.noisy, sigma_init=self.sigma_init, body=AtariBody)
 
     def declare_memory(self):
         self.memory = ExperienceReplayMemory(self.experience_replay_size) if not self.priority_replay else PrioritizedReplayMemory(self.experience_replay_size, self.priority_alpha, self.priority_beta_start, self.priority_beta_frames)
@@ -116,9 +117,9 @@ class Model(BaseAgent):
         diff = (expected_q_values - current_q_values)
         if self.priority_replay:
             self.memory.update_priorities(indices, diff.detach().squeeze().abs().cpu().numpy().tolist())
-            loss = self.huber(diff).squeeze() * weights
+            loss = self.MSE(diff).squeeze() * weights
         else:
-            loss = self.huber(diff)
+            loss = self.MSE(diff)
         loss = loss.mean()
 
         return loss
@@ -129,7 +130,7 @@ class Model(BaseAgent):
 
         self.append_to_replay(s, a, r, s_)
 
-        if frame < self.learn_start:
+        if frame < self.learn_start or frame % self.update_freq != 0:
             return None
 
         batch_vars = self.prep_minibatch()

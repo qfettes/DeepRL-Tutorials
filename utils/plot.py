@@ -133,3 +133,36 @@ def plot(folder, game, name, num_steps, bin_size=100, smooth=1):
     plt.title(game)
     plt.legend(loc=4)
     plt.show()
+
+def plot_reward(folder, game, name, num_steps, bin_size=10, smooth=1, time=None, save_filename='results.png', ipynb=False):
+    matplotlib.rcParams.update({'font.size': 20})
+    tx, ty = load_data(folder, smooth, bin_size)
+
+    if tx is None or ty is None:
+        return
+
+    fig = plt.figure(figsize=(20,5))
+    plt.plot(tx, ty, label="{}".format(name))
+
+    tick_fractions = np.array([0.1, 0.2, 0.4, 0.6, 0.8, 1.0])
+    ticks = tick_fractions * num_steps
+    tick_names = ["{:.0e}".format(tick) for tick in ticks]
+    plt.xticks(ticks, tick_names)
+    plt.xlim(0, num_steps * 1.01)
+
+    plt.xlabel('Number of Timesteps')
+    plt.ylabel('Rewards')
+
+    if time is not None:
+        plt.title(game + ' || Last 10: ' + str(np.round(np.mean(ty[-10]))) + ' || Elapsed Time: ' + str(time))
+    else:
+        plt.title(game + ' || Last 10: ' + str(np.round(np.mean(ty[-10]))))
+    plt.legend(loc=4)
+    if ipynb:
+        plt.show()
+    else:
+        plt.savefig(save_filename)
+    plt.clf()
+    plt.close()
+    
+    return np.round(np.mean(ty[-10]))
