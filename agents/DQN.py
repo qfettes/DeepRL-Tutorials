@@ -98,7 +98,7 @@ class Model(BaseAgent):
 
         return batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights
 
-    def compute_loss(self, batch_vars):
+    def compute_loss(self, batch_vars): #faster
         batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights = batch_vars
 
         #estimate
@@ -148,7 +148,7 @@ class Model(BaseAgent):
         self.save_loss(loss.item())
         self.save_sigma_param_magnitudes()
 
-    def get_action(self, s, eps=0.1):
+    def get_action(self, s, eps=0.1): #faster
         with torch.no_grad():
             if np.random.random() >= eps or self.static_policy or self.noisy:
                 X = torch.tensor([s], device=self.device, dtype=torch.float)

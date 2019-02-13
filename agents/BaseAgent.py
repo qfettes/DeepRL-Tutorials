@@ -46,13 +46,15 @@ class BaseAgent(object):
             self.memory = pickle.load(open(fname, 'rb'))
 
     def save_sigma_param_magnitudes(self):
-        tmp = []
-        for name, param in self.model.named_parameters():
-            if param.requires_grad:
-                if 'sigma' in name:
-                    tmp+=param.data.cpu().numpy().ravel().tolist()
-        if tmp:
-            self.sigma_parameter_mag.append(np.mean(np.abs(np.array(tmp))))
+        with torch.no_grad():
+            sum_, count = 0.0, 0.0
+            for name, param in self.model.named_parameters():
+                if param.requires_grad and 'sigma' in name:
+                    sum_+= torch.sum(param.abs()).item()
+                    count += np.prod(param.shape)
+            
+            if count > 0:
+                self.sigma_parameter_mag.append(sum_/count)
 
     def save_loss(self, loss):
         self.losses.append(loss)
