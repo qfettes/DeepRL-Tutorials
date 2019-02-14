@@ -224,7 +224,7 @@ def plot_all_data(folder, game, name, num_steps, bin_size=(10, 100, 100, 1), smo
     ticks = tick_fractions * num_steps
     tick_names = ["{:.0e}".format(tick) for tick in ticks]
 
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(20, 15), subplot_kw = dict(xticks=ticks, xlim=(0, num_steps*1.01), xlabel='Timestep', title=title))
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(20, 15), subplot_kw = dict(xticks=ticks, xlim=(0, num_steps*1.15), xlabel='Timestep', title=title))
     ax1.set_xticklabels(tick_names)
     ax2.set_xticklabels(tick_names)
     ax3.set_xticklabels(tick_names)
@@ -286,6 +286,12 @@ def plot_all_data(folder, game, name, num_steps, bin_size=(10, 100, 100, 1), smo
         ax3.set_ylabel('Action Selection Frequency(%)')
         labels = ['Action {}'.format(i) for i in range(ty.shape[0])]
         p3 = ax3.stackplot(tx, ty, labels=labels)
+
+        base = 0.0
+        for percent, index in zip(ty, range(ty.shape[0])):
+            offset = base + percent[-1]/3.0
+            ax3.annotate(str('{:.2f}'.format(ty[index][-1])), xy=(tx[-1], offset), color=p3[index].get_facecolor().ravel())
+            base += percent[-1]
 
         #ax3.yaxis.label.set_color(p3.get_color())
         #ax3.tick_params(axis='y', colors=p3.get_color())

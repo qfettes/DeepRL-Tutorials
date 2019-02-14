@@ -12,24 +12,13 @@ class BaseAgent(object):
         self.model=None
         self.target_model=None
         self.optimizer = None
-        
-        self.td_file = open(os.path.join(log_dir, 'td.csv'), 'a')
-        self.td = csv.writer(self.td_file)
 
-        self.sigma_parameter_mag_file = open(os.path.join(log_dir, 'sig_param_mag.csv'), 'a')
-        self.sigma_parameter_mag = csv.writer(self.sigma_parameter_mag_file)
+        self.log_dir = log_dir
 
         self.rewards = []
 
         self.action_log_frequency = config.ACTION_SELECTION_COUNT_FREQUENCY
         self.action_selections = [0 for _ in range(env.action_space.n)]
-        self.action_log_file = open(os.path.join(log_dir, 'action_log.csv'), 'a')
-        self.action_log = csv.writer(self.action_log_file)
-
-    def __del__(self):
-        self.td_file.close()
-        self.sigma_parameter_mag_file.close()
-        self.action_log_file.close()
 
     def huber(self, x):
         cond = (x.abs() < 1.0).float().detach()
@@ -70,10 +59,14 @@ class BaseAgent(object):
                     count += np.prod(param.shape)
             
             if count > 0:
-                self.sigma_parameter_mag.writerow((tstep, sum_/count))
+                with open(os.path.join(self.log_dir, 'sig_param_mag.csv'), 'a') as f:
+                    writer = csv.writer(f)
+                    writer.writerow((tstep, sum_/count))
 
     def save_td(self, td, tstep):
-        self.td.writerow((tstep, td))
+        with open(os.path.join(self.log_dir, 'td.csv'), 'a') as f:
+            writer = csv.writer(f)
+            writer.writerow((tstep, td))
 
     def save_reward(self, reward):
         self.rewards.append(reward)
@@ -81,10 +74,7 @@ class BaseAgent(object):
     def save_action(self, action, tstep):
         self.action_selections[int(action)] += 1.0/self.action_log_frequency
         if (tstep+1) % self.action_log_frequency == 0:
-            self.action_log.writerow(list([tstep]+self.action_selections))
+            with open(os.path.join(self.log_dir, 'action_log.csv'), 'a') as f:
+                writer = csv.writer(f)
+                writer.writerow(list([tstep]+self.action_selections))
             self.action_selections = [0 for _ in range(len(self.action_selections))]
-
-    def flush_data(self):
-        self.action_log_file.flush()
-        self.sigma_parameter_mag_file.flush()
-        self.td_file.flush()

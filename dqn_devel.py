@@ -109,7 +109,6 @@ if __name__=='__main__':
             model.save_w()
             try:
                 print('frame %s. time: %s' % (frame_idx, timedelta(seconds=int(timer()-start))))
-                model.flush_data() #make sure all data is flushed to files
                 plot_all_data(log_dir, env_id, 'DRQN', config.MAX_FRAMES, bin_size=(10, 100, 100, 1), smooth=1, time=timedelta(seconds=int(timer()-start)), ipynb=False)
             except IOError:
                 pass
