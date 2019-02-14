@@ -10,10 +10,10 @@ from utils.hyperparameters import Config
 from networks.network_bodies import AtariBody, SimpleBody
 
 class Model(DQN_Agent):
-    def __init__(self, static_policy=False, env=None, config=None):
+    def __init__(self, static_policy=False, env=None, config=None, log_dir='/tmp/gym'):
         self.sequence_length=config.SEQUENCE_LENGTH
 
-        super(Model, self).__init__(static_policy, env, config)
+        super(Model, self).__init__(static_policy, env, config, log_dir=log_dir)
 
         self.reset_hx()
     

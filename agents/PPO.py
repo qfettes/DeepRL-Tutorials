@@ -71,7 +71,7 @@ class Model(A2C):
         dist_entropy_epoch /= (self.ppo_epoch * self.num_mini_batch)
         total_loss = value_loss_epoch + action_loss_epoch + dist_entropy_epoch
 
-        self.save_loss(total_loss, action_loss_epoch, value_loss_epoch, dist_entropy_epoch)
+        #self.save_loss(total_loss, action_loss_epoch, value_loss_epoch, dist_entropy_epoch)
         #self.save_sigma_param_magnitudes()
 
         return action_loss_epoch, value_loss_epoch, dist_entropy_epoch

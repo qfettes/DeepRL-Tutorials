@@ -8,14 +8,14 @@ from networks.networks import CategoricalDQN
 
 
 class Model(DQN_Agent):
-    def __init__(self, static_policy=False, env=None, config=None):
+    def __init__(self, static_policy=False, env=None, config=None, log_dir='/tmp/gym'):
         self.atoms = config.ATOMS
         self.v_max = config.V_MAX
         self.v_min = config.V_MIN
         self.supports = torch.linspace(self.v_min, self.v_max, self.atoms).view(1, 1, self.atoms).to(config.device)
         self.delta = (self.v_max - self.v_min) / (self.atoms - 1)
 
-        super(Model, self).__init__(static_policy, env, config)
+        super(Model, self).__init__(static_policy, env, config, log_dir=log_dir)
 
     def declare_networks(self):
         self.model = CategoricalDQN(self.env.observation_space.shape, self.env.action_space.n, noisy=self.noisy, sigma_init=self.sigma_init, atoms=self.atoms)

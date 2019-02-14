@@ -8,12 +8,12 @@ from networks.networks import DuelingQRDQN
 from utils.ReplayMemory import PrioritizedReplayMemory
 
 class Model(DQN_Agent):
-    def __init__(self, static_policy=False, env=None, config=None):
+    def __init__(self, static_policy=False, env=None, config=None, log_dir='/tmp/gym'):
         self.num_quantiles = config.QUANTILES
         self.cumulative_density = torch.tensor((2 * np.arange(self.num_quantiles) + 1) / (2.0 * self.num_quantiles), device=config.device, dtype=torch.float) 
         self.quantile_weight = 1.0 / self.num_quantiles
 
-        super(Model, self).__init__(static_policy, env, config)
+        super(Model, self).__init__(static_policy, env, config, log_dir=log_dir)
 
         self.nsteps=max(self.nsteps, 3)
     

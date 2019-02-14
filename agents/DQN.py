@@ -11,8 +11,8 @@ from utils.ReplayMemory import ExperienceReplayMemory, PrioritizedReplayMemory
 from timeit import default_timer as timer
 
 class Model(BaseAgent):
-    def __init__(self, static_policy=False, env=None, config=None):
-        super(Model, self).__init__()
+    def __init__(self, static_policy=False, env=None, config=None, log_dir='/tmp/gym'):
+        super(Model, self).__init__(config=config, env=env, log_dir=log_dir)
         self.device = config.device
 
         self.noisy=config.USE_NOISY_NETS
@@ -145,8 +145,8 @@ class Model(BaseAgent):
         self.optimizer.step()
 
         self.update_target_model()
-        self.save_loss(loss.item())
-        self.save_sigma_param_magnitudes()
+        self.save_td(loss.item(), frame)
+        self.save_sigma_param_magnitudes(frame)
 
     def get_action(self, s, eps=0.1): #faster
         with torch.no_grad():

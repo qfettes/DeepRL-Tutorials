@@ -12,8 +12,8 @@ from utils.RolloutStorage import RolloutStorage
 from timeit import default_timer as timer
 
 class Model(BaseAgent):
-    def __init__(self, static_policy=False, env=None, config=None):
-        super(Model, self).__init__()
+    def __init__(self, static_policy=False, env=None, config=None, log_dir='/tmp/gym'):
+        super(Model, self).__init__(config=config, env=env, log_dir=log_dir)
         self.device = config.device
 
         self.noisy=config.USE_NOISY_NETS
@@ -120,13 +120,13 @@ class Model(BaseAgent):
         torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_norm_max)
         self.optimizer.step()
 
-        self.save_loss(loss.item(), action_loss.item(), value_loss.item(), dist_entropy.item())
+        #self.save_loss(loss.item(), action_loss.item(), value_loss.item(), dist_entropy.item())
         #self.save_sigma_param_magnitudes()
 
         return value_loss.item(), action_loss.item(), dist_entropy.item()
 
-    def save_loss(self, loss, policy_loss, value_loss, entropy_loss):
-        super(Model, self).save_loss(loss)
+    '''def save_loss(self, loss, policy_loss, value_loss, entropy_loss):
+        super(Model, self).save_td(loss)
         self.policy_losses.append(policy_loss)
         self.value_losses.append(value_loss)
-        self.entropy_losses.append(entropy_loss)
+        self.entropy_losses.append(entropy_loss)'''

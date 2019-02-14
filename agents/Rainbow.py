@@ -7,14 +7,14 @@ from networks.networks import CategoricalDuelingDQN, CategoricalDQN
 from utils.ReplayMemory import PrioritizedReplayMemory
 
 class Model(DQN_Agent):
-    def __init__(self, static_policy=False, env=None, config=None):
+    def __init__(self, static_policy=False, env=None, config=None, log_dir='/tmp/gym'):
         self.atoms=config.ATOMS
         self.v_max=config.V_MAX
         self.v_min=config.V_MIN
         self.supports = torch.linspace(self.v_min, self.v_max, self.atoms).view(1, 1, self.atoms).to(config.device)
         self.delta = (self.v_max - self.v_min) / (self.atoms - 1)
 
-        super(Model, self).__init__(static_policy, env, config)
+        super(Model, self).__init__(static_policy, env, config, log_dir=log_dir)
 
         self.nsteps=max(self.nsteps,3)
     

@@ -64,6 +64,9 @@ class Config(object):
         #DRQN Parameters
         self.SEQUENCE_LENGTH=8
 
+        #data logging parameters
+        self.ACTION_SELECTION_COUNT_FREQUENCY = 1000
+
 
 '''
 
