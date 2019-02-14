@@ -106,6 +106,7 @@ if __name__=='__main__':
             episode_reward = 0
             
         if frame_idx % 10000 == 0:
+            model.save_w()
             try:
                 print('frame %s. time: %s' % (frame_idx, timedelta(seconds=int(timer()-start))))
                 model.flush_data() #make sure all data is flushed to files
