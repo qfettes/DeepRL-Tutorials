@@ -44,10 +44,11 @@ python a2c_devel.py --algo ppo --print-threshold 10 --save-threshold 100 --lr 2.
 * Python 3.6
 * Numpy 
 * Gym 
-* Pytorch 0.4.0 
+* Pytorch>=1.3.0
 * Matplotlib 
 * OpenCV 
 * Baslines
+* tensorboard
 
 # Known Reproduction Differences
 * DQN
