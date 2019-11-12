@@ -67,8 +67,10 @@ class Model(BaseAgent):
         # self.memory.push((state, action, R, s_))
         
         # self.memory.push((s, a, r, s_))
-        for state, action, reward, next_state, terminal in zip(s, a, r, s_, t):
-            self.memory.push((state, action, reward, next_state, terminal))
+        
+        self.memory.push((s, a, r, s_, t))
+        # for state, action, reward, next_state, terminal in zip(s, a, r, s_, t):
+        #     self.memory.push((state, action, reward, next_state, terminal))
 
     # NOTE: Made to work with OpenAI Gym's experience replay
     #   probably broken with prioritized replay
@@ -170,6 +172,12 @@ class Model(BaseAgent):
 
         loss = self.loss_fun(current_q_values, target)
 
+        # Optimize the model
+        self.optimizer.zero_grad()
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.grad_norm_max)
+        self.optimizer.step()
+
         #log val estimates
         with torch.no_grad():
             self.tb_writer.add_scalar('Policy/Value Estimate', current_q_values.detach().mean().item(), frame)
@@ -189,12 +197,6 @@ class Model(BaseAgent):
         batch_vars = self.prep_minibatch()
 
         loss = self.compute_loss(batch_vars, frame)
-
-        # Optimize the model
-        self.optimizer.zero_grad()
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.grad_norm_max)
-        self.optimizer.step()
 
         self.update_target_model()
 
@@ -232,13 +234,15 @@ class Model(BaseAgent):
     def get_action(self, s, eps=0.1):
         with torch.no_grad():
             if np.random.random() > eps or self.static_policy or self.config.noisy_nets:
-                X = torch.from_numpy(s).to(self.config.device).to(torch.float)
+                X = torch.from_numpy(s).to(self.config.device).to(torch.float).view((-1,)+self.num_feats)
                 X = X if self.config.s_norm is None else X/self.config.s_norm
 
                 # self.model.sample_noise()
-                return torch.argmax(self.model(X), dim=1).cpu().numpy()
+                # return torch.argmax(self.model(X), dim=1).cpu().numpy()
+                return torch.argmax(self.model(X), dim=1).cpu().item()
             else:
-                return np.random.randint(0, self.num_actions, (s.shape[0]))
+                # return np.random.randint(0, self.num_actions, (s.shape[0]))
+                return np.random.randint(0, self.num_actions)
 
     def update_target_model(self):
         self.update_count+=1

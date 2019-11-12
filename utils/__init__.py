@@ -44,6 +44,7 @@ class LinearSchedule:
 class PiecewiseSchedule:
     def __init__(self, start, end=None, decay=None, max_steps=None):
         assert(type(end) == list and type(decay) == list), '[Error] Expected lists of epsilon end and epsilon decay parameters'
+        assert(len(end) == len(decay)), '[Error] Expected equal number of decay lengths and targets for epsilon'
 
         # determine the last tstep for each section
         self.section_ends = [0] + [d*max_steps for d in decay]
