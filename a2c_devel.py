@@ -24,7 +24,7 @@ from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
 
 from utils import save_config, update_linear_schedule, create_directory
 from utils.wrappers import make_env_atari
-from utils.hyperparameters import PolicyConfig
+from utils.hyperparameters import Config
 
 
 parser = argparse.ArgumentParser(description='RL')
@@ -104,7 +104,7 @@ else:
     print("INVALID ALGORITHM. ABORT.")
     exit()
 
-config = PolicyConfig()
+config = Config()
 config.algo = args.algo
 config.env_id = args.env_name
 
@@ -117,10 +117,10 @@ config.stack_frames = args.stack_frames
 config.adaptive_repeat = args.adaptive_repeat #adaptive repeat
 
 #Recurrent control
-config.recurrent_policy_grad = args.recurrent_policy
+config.policy_gradient_recurrent_policy = args.recurrent_policy
 config.gru_size = args.gru_size
 
-if config.recurrent_policy_grad:
+if config.policy_gradient_recurrent_policy:
     model_architecture = 'recurrent/'
 else:
     model_architecture = 'feedforward/'
@@ -132,9 +132,9 @@ config.ppo_clip_param = args.clip_param
 config.use_ppo_vf_clip = args.disable_ppo_clip_value
 
 #a2c control
-config.num_agents=args.num_processes
-config.rollout=args.num_steps
-config.USE_GAE = args.enable_gae
+config.num_envs = args.num_processes
+config.update_freq = args.num_steps
+config.use_gae = args.enable_gae
 config.gae_tau = args.tau
 
 #RMSProp params
@@ -145,8 +145,8 @@ config.rms_eps = args.rms_eps
 config.adam_eps = args.adam_eps
 
 #misc agent variables
-config.GAMMA=args.gamma
-config.LR=args.lr
+config.gamma=args.gamma
+config.lr=args.lr
 config.entropy_loss_weight=args.entropy_coef
 config.value_loss_weight=args.value_loss_coef
 config.grad_norm_max = args.max_grad_norm
@@ -161,9 +161,9 @@ config.use_lr_schedule = args.disable_lr_schedule
 config.anneal_ppo_clip = args.disable_ppo_clip_schedule
 config.render = args.render
 
-config.MAX_TSTEPS = args.max_tsteps
+config.max_tsteps = args.max_tsteps
 
-max_epochs = int(args.max_tsteps / config.num_agents / config.rollout)
+max_epochs = int(args.max_tsteps / config.num_envs / config.update_freq )
 
 def train(config):
     #make/clear directories for logging
@@ -188,7 +188,7 @@ def train(config):
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed)
 
-    envs = [make_env_atari(config.env_id, seed, i, log_dir, stack_frames=config.stack_frames, adaptive_repeat=config.adaptive_repeat, sticky_actions=config.sticky_actions, clip_rewards=True) for i in range(config.num_agents)]
+    envs = [make_env_atari(config.env_id, seed, i, log_dir, stack_frames=config.stack_frames, adaptive_repeat=config.adaptive_repeat, sticky_actions=config.sticky_actions, clip_rewards=True) for i in range(config.num_envs)]
     envs = SubprocVecEnv(envs)
 
     model = Model(static_policy=config.inference, env=envs, config=config, log_dir=base_dir, tb_writer=writer)
@@ -199,17 +199,17 @@ def train(config):
 
     model.config.rollouts.observations[0].copy_(obs)
     
-    episode_rewards = np.zeros(config.num_agents, dtype=np.float)
-    final_rewards = np.zeros(config.num_agents, dtype=np.float)
+    episode_rewards = np.zeros(config.num_envs, dtype=np.float)
+    final_rewards = np.zeros(config.num_envs, dtype=np.float)
     last_100_rewards = deque(maxlen=100)
 
     start = timer()
     
     for epoch in range(1, max_epochs+1):
         if config.use_lr_schedule:
-            update_linear_schedule(model.optimizer, epoch-1, max_epochs, config.LR)
+            update_linear_schedule(model.optimizer, epoch-1, max_epochs, config.lr)
 
-        for step in range(config.rollout):
+        for step in range(config.update_freq ):
             with torch.no_grad():
                 values, actions, action_log_prob, states = model.get_action(
                                                             model.config.rollouts.observations[step],
@@ -230,7 +230,7 @@ def train(config):
             episode_rewards *= masks
 
             for index, inf in enumerate(info):
-                current_tstep = (epoch-1)*config.rollout*config.num_agents+step*config.num_agents+index
+                current_tstep = (epoch-1)*config.update_freq *config.num_envs+step*config.num_envs+index
                 if 'episode' in inf.keys():
                     last_100_rewards.append(inf['episode']['r'])
                     writer.add_scalar('Performance/Environment Reward', inf['episode']['r'], current_tstep)
@@ -252,7 +252,7 @@ def train(config):
                                 model.config.rollouts.states[-1],
                                 model.config.rollouts.masks[-1])
             
-        value_loss, action_loss, dist_entropy, dynamics_loss = model.update(model.config.rollouts, next_value, epoch*config.rollout*config.num_agents)
+        value_loss, action_loss, dist_entropy, dynamics_loss = model.update(model.config.rollouts, next_value, epoch*config.update_freq *config.num_envs)
         
         model.config.rollouts.after_update()
 
@@ -262,7 +262,7 @@ def train(config):
         if epoch % config.print_threshold == 0 and len(last_100_rewards) > 0:
             #print
             end = timer()
-            total_num_steps = (epoch) * config.num_agents * config.rollout
+            total_num_steps = (epoch) * config.num_envs * config.update_freq 
             print("Updates {}, num timesteps {}, FPS {}, mean/median reward {:.1f}/{:.1f}, min/max reward {:.1f}/{:.1f}, entropy {:.5f}, val loss {:.5f}, pol loss {:.5f}, dyn loss {:.5f}".
                 format(epoch, total_num_steps,
                        int(total_num_steps*np.mean(config.adaptive_repeat) / (end - start)),
@@ -286,7 +286,7 @@ def test(config):
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed)
 
-    env = [make_env_atari(config.env_id, seed, config.num_agents, log_dir, stack_frames=config.stack_frames, adaptive_repeat=config.adaptive_repeat, sticky_actions=config.sticky_actions, clip_rewards=False)]
+    env = [make_env_atari(config.env_id, seed, config.num_envs, log_dir, stack_frames=config.stack_frames, adaptive_repeat=config.adaptive_repeat, sticky_actions=config.sticky_actions, clip_rewards=False)]
     env = SubprocVecEnv(env)
 
     model = Model(env=env, config=config, log_dir=base_dir, static_policy=config.inference)

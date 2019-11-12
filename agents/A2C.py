@@ -24,7 +24,7 @@ class Model(BaseAgent):
 
         self.declare_networks()
 
-        self.optimizer = optim.RMSprop(self.model.parameters(), lr=self.config.LR, alpha=self.config.rms_alpha, eps=self.config.rms_eps)   
+        self.optimizer = optim.RMSprop(self.model.parameters(), lr=self.config.lr, alpha=self.config.rms_alpha, eps=self.config.rms_eps)   
         
         #move to correct device
         self.model = self.model.to(self.config.device)
@@ -34,9 +34,9 @@ class Model(BaseAgent):
         else:
             self.model.train()
 
-        self.config.rollouts = RolloutStorage(self.config.rollout, self.config.num_agents,
+        self.config.rollouts = RolloutStorage(self.config.update_freq , self.config.num_envs,
             self.num_feats, self.env.action_space, self.model.state_size,
-            self.config.device, config.USE_GAE, config.gae_tau)
+            self.config.device, config.use_gae, config.gae_tau)
 
         self.value_losses = []
         self.entropy_losses = []
@@ -44,7 +44,7 @@ class Model(BaseAgent):
 
 
     def declare_networks(self):
-        self.model = ActorCritic(self.num_feats, self.num_actions, conv_out=64, use_gru=self.config.recurrent_policy_grad, gru_size=self.config.gru_size, noisy_nets=self.config.noisy_nets, sigma_init=self.config.sigma_init)
+        self.model = ActorCritic(self.num_feats, self.num_actions, conv_out=64, use_gru=self.config.policy_gradient_recurrent_policy, gru_size=self.config.gru_size, noisy_nets=self.config.noisy_nets, sigma_init=self.config.sigma_init)
 
     def get_action(self, s, states, masks, deterministic=False):
         logits, values, states = self.model(s, states, masks)
@@ -83,7 +83,7 @@ class Model(BaseAgent):
         action_shape = rollouts.actions.size()[-1]
         num_steps, num_processes, _ = rollouts.rewards.size()
 
-        rollouts.compute_returns(next_value, self.config.GAMMA)
+        rollouts.compute_returns(next_value, self.config.gamma)
 
         values, action_log_probs, dist_entropy, states = self.evaluate_actions(
             rollouts.observations[:-1].view(-1, *obs_shape),

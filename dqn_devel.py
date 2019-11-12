@@ -17,7 +17,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from utils import save_config, update_linear_schedule, create_directory, LinearSchedule, PiecewiseSchedule, ExponentialSchedule
 from utils.wrappers import make_env_atari
-from utils.hyperparameters import DQNConfig
+from utils.hyperparameters import Config
 from utils.plot import plot_reward
 
 from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
@@ -114,22 +114,22 @@ def train(config):
 
     if len(config.epsilon_final) == 1:
         if config.epsilon_decay[0] > 1.0:
-            anneal_eps = ExponentialSchedule(config.epsilon_start, config.epsilon_final[0], config.epsilon_decay[0], config.MAX_TSTEPS)
+            anneal_eps = ExponentialSchedule(config.epsilon_start, config.epsilon_final[0], config.epsilon_decay[0], config.max_tsteps)
         else:
-            anneal_eps = LinearSchedule(config.epsilon_start, config.epsilon_final[0], config.epsilon_decay[0], config.MAX_TSTEPS)
+            anneal_eps = LinearSchedule(config.epsilon_start, config.epsilon_final[0], config.epsilon_decay[0], config.max_tsteps)
     else:
-        anneal_eps = PiecewiseSchedule(config.epsilon_start, config.epsilon_final, config.epsilon_decay, config.MAX_TSTEPS)
+        anneal_eps = PiecewiseSchedule(config.epsilon_start, config.epsilon_final, config.epsilon_decay, config.max_tsteps)
 
     start = timer()
     observations = envs.reset()
 
-    progress = tqdm.tqdm(range(1, int(config.MAX_TSTEPS) + 1))
+    progress = tqdm.tqdm(range(1, int(config.max_tsteps) + 1))
     progress.set_description("Updates %d, Tsteps %d, Time %.2f, FPS %d, mean/median R %.1f/%.1f, min/max R %.1f/%.1f" %
         (0, 0 , 0, 0, 0.0, 0.0, 0.0, 0.0))
     for current_tstep in progress:
         
         if config.use_lr_schedule:
-            update_linear_schedule(model.optimizer, current_tstep-1, config.MAX_TSTEPS, config.LR)
+            update_linear_schedule(model.optimizer, current_tstep-1, config.max_tsteps, config.lr)
         
         epsilon = anneal_eps(current_tstep)
         writer.add_scalar('Policy/Epsilon', epsilon, current_tstep)
@@ -165,7 +165,7 @@ def train(config):
         if current_tstep % config.print_threshold == 0 and last_100_rewards:
             end = timer()
             # print("Updates {}, num timesteps {}, Time Elapsed {}, FPS {}, mean/median reward {:.1f}/{:.1f}, min/max reward {:.1f}/{:.1f}".
-            #     format(int(np.max([(current_tstep-config.LEARN_START)/config.UPDATE_FREQ, 0])),
+            #     format(int(np.max([(current_tstep-config.learn_start)/config.update_freq, 0])),
             #         current_tstep,
             #         str(timedelta(seconds=end-start)).split('.')[0],
             #         int(current_tstep*np.mean(config.adaptive_repeat) / (end - start)),
@@ -174,7 +174,7 @@ def train(config):
             #         np.min(last_100_rewards),
             #         np.max(last_100_rewards)))
             progress.set_description("Upd. %d, Tsteps %d, Time %s, FPS %d, mean/median R %.1f/%.1f, min/max R %.1f/%.1f" %
-                (int(np.max([(current_tstep-config.LEARN_START)/config.UPDATE_FREQ, 0])),
+                (int(np.max([(current_tstep-config.learn_start)/config.update_freq, 0])),
                 current_tstep,
                 str(timedelta(seconds=end-start)).split('.')[0],
                 int(current_tstep*config.num_envs*np.mean(config.adaptive_repeat) / (end - start)),
@@ -188,10 +188,10 @@ def train(config):
     end = timer()
     if(last_100_rewards):
         progress.set_description("Upd. %d, Tsteps %d, Time %s, FPS %d, mean/median R %.1f/%.1f, min/max R %.1f/%.1f" %
-            (int(np.max([(config.MAX_TSTEPS-config.LEARN_START)/config.UPDATE_FREQ, 0])),
-            config.MAX_TSTEPS,
+            (int(np.max([(config.max_tsteps-config.learn_start)/config.update_freq, 0])),
+            config.max_tsteps,
             str(timedelta(seconds=end-start)).split('.')[0],
-            int(config.MAX_TSTEPS*np.mean(config.adaptive_repeat) / (end - start)),
+            int(config.max_tsteps*np.mean(config.adaptive_repeat) / (end - start)),
             np.mean(last_100_rewards),
             np.median(last_100_rewards),
             np.min(last_100_rewards),
@@ -212,7 +212,7 @@ if __name__=='__main__':
         exit()
 
     #training params
-    config = DQNConfig()
+    config = Config()
 
     config.algo = args.algo
     config.env_id = args.env_name
@@ -243,24 +243,24 @@ if __name__=='__main__':
     config.epsilon_decay    = args.eps_decay
 
     #misc agent variables
-    config.LR    = args.lr
-    config.GAMMA = args.gamma
+    config.lr    = args.lr
+    config.gamma = args.gamma
 
     #memory
     config.TARGET_NET_UPDATE_FREQ = args.tnet_update
     config.EXP_REPLAY_SIZE        = args.replay_size
     config.BATCH_SIZE             = args.batch_size
-    # config.PRIORITY_ALPHA       = 0.6
-    # config.PRIORITY_BETA_START  = 0.4
-    # config.PRIORITY_BETA_FRAMES = 100000
+    # config.priority_alpha       = 0.6
+    # config.priority_beta_start  = 0.4
+    # config.priority_beta_tsteps = 100000
 
     #Noisy Nets
     # config.sigma_init = 0.5
 
     #Learning control variables
-    config.LEARN_START = args.learn_start
-    config.MAX_TSTEPS  = args.max_tsteps
-    config.UPDATE_FREQ = args.update_freq
+    config.learn_start = args.learn_start
+    config.max_tsteps  = args.max_tsteps
+    config.update_freq = args.update_freq
     config.num_envs    = args.nenvs
 
     #adam params
@@ -277,8 +277,5 @@ if __name__=='__main__':
 
     #DRQN Parameters
     # config.SEQUENCE_LENGTH = 8
-
-    #data logging parameters
-    # config.ACTION_SELECTION_COUNT_FREQUENCY = 1000
 
     train(config)

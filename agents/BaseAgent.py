@@ -18,7 +18,6 @@ class BaseAgent(object):
 
         self.rewards = []
 
-        self.action_log_frequency = config.ACTION_SELECTION_COUNT_FREQUENCY
         self.action_selections = [0 for _ in range(env.action_space.n)]
 
     def save_w(self):
@@ -58,14 +57,6 @@ class BaseAgent(object):
 
     def save_reward(self, reward):
         self.rewards.append(reward)
-
-    def save_action(self, action, tstep):
-        self.action_selections[int(action)] += 1.0/self.action_log_frequency
-        if (tstep+1) % self.action_log_frequency == 0:
-            with open(os.path.join(self.log_dir, 'action_log.csv'), 'a') as f:
-                writer = csv.writer(f)
-                writer.writerow(list([tstep]+self.action_selections))
-            self.action_selections = [0 for _ in range(len(self.action_selections))]
     
     def count_parameters(self, model):
         if model is None:

@@ -26,7 +26,7 @@ class Model(BaseAgent):
         self.declare_networks()
             
         self.target_model.load_state_dict(self.model.state_dict())
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.config.LR, eps=self.config.adam_eps)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=self.config.lr, eps=self.config.adam_eps)
         
         self.loss_fun = torch.nn.SmoothL1Loss(reduction='mean')
         # self.loss_fun = torch.nn.MSELoss(reduction='mean')
@@ -51,7 +51,7 @@ class Model(BaseAgent):
         self.target_model = DQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody)
 
     def declare_memory(self):
-        # self.memory = ExperienceReplayMemory(self.config.EXP_REPLAY_SIZE) if not self.config.priority_replay else PrioritizedReplayMemory(self.config.EXP_REPLAY_SIZE, self.config.PRIORITY_ALPHA, self.config.PRIORITY_BETA_START, self.config.PRIORITY_BETA_FRAMES)
+        # self.memory = ExperienceReplayMemory(self.config.EXP_REPLAY_SIZE) if not self.config.priority_replay else PrioritizedReplayMemory(self.config.EXP_REPLAY_SIZE, self.config.priority_alpha, self.config.priority_beta_start, self.config.priority_beta_tsteps)
         self.memory = ExperienceReplayMemory(self.config.EXP_REPLAY_SIZE)
 
     def append_to_replay(self, s, a, r, s_, t):
@@ -63,7 +63,7 @@ class Model(BaseAgent):
         # if(len(self.nstep_buffer)<self.config.N_STEPS):
         #     return
         
-        # R = sum([self.nstep_buffer[i][2]*(self.config.GAMMA**i) for i in range(self.config.N_STEPS)])
+        # R = sum([self.nstep_buffer[i][2]*(self.config.gamma**i) for i in range(self.config.N_STEPS)])
         # state, action, _, _ = self.nstep_buffer.pop(0)
 
         # self.memory.push((state, action, R, s_))
@@ -151,12 +151,12 @@ class Model(BaseAgent):
             #     max_next_action = self.get_max_next_state_action(non_final_next_states)
             #     # self.target_model.sample_noise()
             #     max_next_q_values[non_final_mask] = self.target_model(non_final_next_states).gather(1, max_next_action)
-            # # expected_q_values = batch_reward + ((self.config.GAMMA**self.config.N_STEPS)*max_next_q_values)
-            # expected_q_values = batch_reward + self.config.GAMMA*max_next_q_values
+            # # expected_q_values = batch_reward + ((self.config.gamma**self.config.N_STEPS)*max_next_q_values)
+            # expected_q_values = batch_reward + self.config.gamma*max_next_q_values
             
-            next_q_values = self.config.GAMMA * self.target_model(batch_next_state).max(dim=1)[0].view(-1, 1) * (1.0 - batch_terminal)
+            next_q_values = self.config.gamma * self.target_model(batch_next_state).max(dim=1)[0].view(-1, 1) * (1.0 - batch_terminal)
             # max_next_action = self.model(batch_next_state).max(dim=1)[1].view(-1, 1) # try double learning
-            # next_q_values = self.config.GAMMA * self.target_model(batch_next_state).gather(1, max_next_action) * (1.0 - batch_terminal)
+            # next_q_values = self.config.gamma * self.target_model(batch_next_state).gather(1, max_next_action) * (1.0 - batch_terminal)
             target = batch_reward + next_q_values
 
         # diff = (target - current_q_values)
@@ -187,7 +187,7 @@ class Model(BaseAgent):
 
         self.append_to_replay(s, a, r, s_, terminal)
 
-        if frame < self.config.LEARN_START or frame % self.config.UPDATE_FREQ != 0:
+        if frame < self.config.learn_start or frame % self.config.update_freq != 0:
             return None
 
         batch_vars = self.prep_minibatch()
@@ -255,7 +255,7 @@ class Model(BaseAgent):
 
     def finish_nstep(self, idx):
         # while len(self.nstep_buffer) > 0:
-        #     R = sum([self.nstep_buffer[i][2]*(self.config.GAMMA**i) for i in range(len(self.nstep_buffer))])
+        #     R = sum([self.nstep_buffer[i][2]*(self.config.gamma**i) for i in range(len(self.nstep_buffer))])
         #     state, action, _, _ = self.nstep_buffer.pop(0)
 
         #     self.memory.push((state, action, R, None))

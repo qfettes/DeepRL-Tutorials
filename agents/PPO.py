@@ -11,7 +11,7 @@ class Model(A2C):
     def __init__(self, static_policy=False, env=None, config=None, log_dir='/tmp/gym', tb_writer=None):
         super(Model, self).__init__(static_policy, env, config, log_dir, tb_writer=tb_writer)
 
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.config.LR, eps=self.config.adam_eps)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=self.config.lr, eps=self.config.adam_eps)
 
     def compute_loss(self, sample, next_value, clip_param):
         observations_batch, states_batch, actions_batch, value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, adv_targ = sample
@@ -40,7 +40,7 @@ class Model(A2C):
         return loss, action_loss, value_loss, dist_entropy
 
     def update(self, rollout, next_value, frame):
-        rollout.compute_returns(next_value, self.config.GAMMA)
+        rollout.compute_returns(next_value, self.config.gamma)
 
         advantages = rollout.returns[:-1] - rollout.value_preds[:-1]
         advantages = (advantages - advantages.mean()) / (
