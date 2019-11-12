@@ -1,14 +1,8 @@
 # TODO:
 * Add value of states to tb logging for PPO
-* Double check PPO hyperparameters (below)
-
 * Why is Rainbow so slow?
-* Fix manual reward logging for all agents
-* Fix sig, loss, and action selection freq logging for policy gradient methods
 * Finish implementing curious agent
-* Update dqn_devel to look more like a2c_devel
-* Instead of copying config variables to each agent, copy entire config class and access member variables with self.config.var
-* Rename each agent class from "Model" to something more descriptive
+* Rename each agent class from "Agent" to something more descriptive
 
 # DeepRL-Tutorials
 The intent of these IPython Notebooks are mostly to help me practice and understand the papers I read; thus, I will opt for readability over efficiency in some cases. First the implementation will be uploaded, followed by markup to explain each portion of code. I'll be assigning credit for any code which is  borrowed in the Acknowledgements section of this README.
@@ -31,16 +25,19 @@ The intent of these IPython Notebooks are mostly to help me practice and underst
 14. Proximal Policy Optimization Algorithms [[Publication]](https://arxiv.org/abs/1707.06347)[[code]](https://github.com/qfettes/DeepRL-Tutorials/blob/master/14.PPO.ipynb)
 
 ### DQN (Quick Verification):
-python dqn_devel.py --env-name PongNoFrameskip-v4 --stack-frames 1 --eps-end 0.01 --eps-decay 30000 --tnet-update 1000 --replay-size 100000 --learn-start 10000 --max-tsteps 1000000 --update-freq 1 --adam-eps 0.00000001
+python train.py --env-name PongNoFrameskip-v4 --stack-frames 1 --eps-end 0.01 --eps-decay 30000 --tnet-update 1000 --replay-size 100000 --learn-start 10000 --max-tsteps 1000000 --update-freq 1 --adam-eps 0.00000001
+
+### DQN
+python train.py
 
 ### A2C:
-python a2c_devel.py
+python train.py --algo a2c --print-threshold 100 --max-tsteps 10000000 --learn-start 0 --nenvs 16 --update-freq 5 --lr 0.0007 --anneal-lr --max-grad-norm 0.5 
 
 ### Recurrent A2C:
-python a2c_devel.py --print-threshold 25 --recurrent-policy --num-steps 20
+python train.py --algo a2c --print-threshold 25 --save-threshold 250 --max-tsteps 10000000 --learn-start 0 --nenvs 16 --update-freq 20 --lr 0.0007 --anneal-lr --max-grad-norm 0.5 --recurrent-policy-gradient
 
 ### PPO:
-python a2c_devel.py --algo ppo --print-threshold 10 --save-threshold 100 --lr 2.5e-4 --num-processes 8 --num-steps 128 --enable-gae --disable-ppo-clip-value
+python train.py --algo ppo --print-threshold 10 --save-threshold 100 --max-tsteps 10000000 --learn-start 0 --nenvs 8 --update-freq 128 --lr 2.5e-4 --anneal-lr --max-grad-norm 0.5 --adam-eps 1.0e-5 --enable-gae --disable-ppo-clip-value
     
 ## Requirements: 
 

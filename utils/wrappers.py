@@ -1,6 +1,4 @@
 #TODO: include wrapper to log original returns
-#TODO: roll in loop stuff to step function so the same drive can be used for a2c/dqn algs
-
 
 import os
 import numpy as np

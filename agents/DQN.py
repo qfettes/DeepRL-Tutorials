@@ -1,4 +1,3 @@
-#NOTE: RMS Params should be passed as config variables
 import numpy as np
 
 import torch
@@ -10,18 +9,21 @@ from networks.network_bodies import AtariBody, SimpleBody
 from utils.ReplayMemory import ExperienceReplayMemory, PrioritizedReplayMemory
 
 from timeit import default_timer as timer
+from collections import deque
 
 import sys
 np.set_printoptions(threshold=sys.maxsize)
 
-class Model(BaseAgent):
+from utils import LinearSchedule, PiecewiseSchedule, ExponentialSchedule
+
+class Agent(BaseAgent):
     def __init__(self, static_policy=False, env=None, config=None, log_dir='/tmp/gym', tb_writer=None):
-        super(Model, self).__init__(config=config, env=env, log_dir=log_dir, tb_writer=tb_writer)
+        super(Agent, self).__init__(config=config, env=env, log_dir=log_dir, tb_writer=tb_writer)
         self.config = config
         self.static_policy = static_policy
         self.num_feats = env.observation_space.shape
         self.num_actions = env.action_space.n * len(config.adaptive_repeat)
-        self.env = env
+        self.envs = env
 
         self.declare_networks()
             
@@ -46,13 +48,30 @@ class Model(BaseAgent):
         self.update_count = 0
         # self.nstep_buffer = []
 
+        self.training_priors()
+
     def declare_networks(self):
         self.model = DQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody)
         self.target_model = DQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody)
 
     def declare_memory(self):
-        # self.memory = ExperienceReplayMemory(self.config.EXP_REPLAY_SIZE) if not self.config.priority_replay else PrioritizedReplayMemory(self.config.EXP_REPLAY_SIZE, self.config.priority_alpha, self.config.priority_beta_start, self.config.priority_beta_tsteps)
-        self.memory = ExperienceReplayMemory(self.config.EXP_REPLAY_SIZE)
+        # self.memory = ExperienceReplayMemory(self.config.exp_replay_size) if not self.config.priority_replay else PrioritizedReplayMemory(self.config.exp_replay_size, self.config.priority_alpha, self.config.priority_beta_start, self.config.priority_beta_tsteps)
+        self.memory = ExperienceReplayMemory(self.config.exp_replay_size)
+
+    def training_priors(self):
+        self.episode_rewards = np.zeros(self.config.num_envs)
+        self.last_100_rewards = deque(maxlen=100)
+
+        if len(self.config.epsilon_final) == 1:
+            if self.config.epsilon_decay[0] > 1.0:
+                self.anneal_eps = ExponentialSchedule(self.config.epsilon_start, self.config.epsilon_final[0], self.config.epsilon_decay[0], self.config.max_tsteps)
+            else:
+                self.anneal_eps = LinearSchedule(self.config.epsilon_start, self.config.epsilon_final[0], self.config.epsilon_decay[0], self.config.max_tsteps)
+        else:
+            self.anneal_eps = PiecewiseSchedule(self.config.epsilon_start, self.config.epsilon_final, self.config.epsilon_decay, self.config.max_tsteps)
+
+        self.prev_observations, self.actions, self.rewards, self.dones = None, None, None, None,
+        self.observations = self.envs.reset()
 
     def append_to_replay(self, s, a, r, s_, t):
         #TODO: Naive. This is implemented like rainbow.
@@ -60,10 +79,10 @@ class Model(BaseAgent):
         # off-policy correction
         # self.nstep_buffer.append((s, a, r, s_))
 
-        # if(len(self.nstep_buffer)<self.config.N_STEPS):
+        # if(len(self.nstep_buffer)<self.config.N_steps):
         #     return
         
-        # R = sum([self.nstep_buffer[i][2]*(self.config.gamma**i) for i in range(self.config.N_STEPS)])
+        # R = sum([self.nstep_buffer[i][2]*(self.config.gamma**i) for i in range(self.config.N_steps)])
         # state, action, _, _ = self.nstep_buffer.pop(0)
 
         # self.memory.push((state, action, R, s_))
@@ -78,7 +97,7 @@ class Model(BaseAgent):
     #   probably broken with prioritized replay
     def prep_minibatch(self):
         # random transition batch is taken from experience replay memory
-        batch_state, batch_action, batch_reward, batch_next_state, batch_terminal, indices, weights = self.memory.sample(self.config.BATCH_SIZE)
+        batch_state, batch_action, batch_reward, batch_next_state, batch_terminal, indices, weights = self.memory.sample(self.config.batch_size)
 
         batch_state = torch.from_numpy(batch_state).to(self.config.device).to(torch.float)
         batch_state = batch_state if self.config.s_norm is None else batch_state/self.config.s_norm
@@ -96,7 +115,7 @@ class Model(BaseAgent):
 
     # def prep_minibatch(self):
     #     # random transition batch is taken from experience replay memory
-    #     transitions, indices, weights = self.memory.sample(self.config.BATCH_SIZE)
+    #     transitions, indices, weights = self.memory.sample(self.config.batch_size)
         
     #     # batch_state, batch_action, batch_reward, batch_next_state = zip(*transitions)
     #     batch_state, batch_action, batch_reward, batch_next_state, batch_terminal = zip(*transitions)
@@ -136,7 +155,7 @@ class Model(BaseAgent):
     #     #return batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights
     #     return batch_state, batch_action, batch_reward, batch_next_state, batch_terminal, indices, weights
 
-    def compute_loss(self, batch_vars, frame): #faster
+    def compute_loss(self, batch_vars, tstep): #faster
         #batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights = batch_vars
         batch_state, batch_action, batch_reward, batch_next_state, batch_terminal, indices, weights = batch_vars
 
@@ -146,12 +165,12 @@ class Model(BaseAgent):
         
         #target
         with torch.no_grad():
-            # max_next_q_values = torch.zeros(self.config.BATCH_SIZE, device=self.config.device, dtype=torch.float).unsqueeze(dim=1)
+            # max_next_q_values = torch.zeros(self.config.batch_size, device=self.config.device, dtype=torch.float).unsqueeze(dim=1)
             # if not empty_next_state_values:
             #     max_next_action = self.get_max_next_state_action(non_final_next_states)
             #     # self.target_model.sample_noise()
             #     max_next_q_values[non_final_mask] = self.target_model(non_final_next_states).gather(1, max_next_action)
-            # # expected_q_values = batch_reward + ((self.config.gamma**self.config.N_STEPS)*max_next_q_values)
+            # # expected_q_values = batch_reward + ((self.config.gamma**self.config.N_steps)*max_next_q_values)
             # expected_q_values = batch_reward + self.config.gamma*max_next_q_values
             
             next_q_values = self.config.gamma * self.target_model(batch_next_state).max(dim=1)[0].view(-1, 1) * (1.0 - batch_terminal)
@@ -176,23 +195,23 @@ class Model(BaseAgent):
 
         #log val estimates
         with torch.no_grad():
-            self.tb_writer.add_scalar('Policy/Value Estimate', current_q_values.detach().mean().item(), frame)
-            self.tb_writer.add_scalar('Policy/Next Value Estimate', target.detach().mean().item(), frame)
+            self.tb_writer.add_scalar('Policy/Value Estimate', current_q_values.detach().mean().item(), tstep)
+            self.tb_writer.add_scalar('Policy/Next Value Estimate', target.detach().mean().item(), tstep)
 
         return loss
 
-    def update(self, s, a, r, s_, terminal, frame=0):
+    def update_(self, s, a, r, s_, terminal, tstep=0):
         if self.static_policy:
             return None
 
         self.append_to_replay(s, a, r, s_, terminal)
 
-        if frame < self.config.learn_start or frame % self.config.update_freq != 0:
+        if tstep < self.config.learn_start:
             return None
 
         batch_vars = self.prep_minibatch()
 
-        loss = self.compute_loss(batch_vars, frame)
+        loss = self.compute_loss(batch_vars, tstep)
 
         # Optimize the model
         self.optimizer.zero_grad()
@@ -204,8 +223,8 @@ class Model(BaseAgent):
 
         #more logging
         with torch.no_grad():
-            self.tb_writer.add_scalar('Loss/Total Loss', loss.item(), frame)
-            self.tb_writer.add_scalar('Learning/Learning Rate', np.mean([param_group['lr'] for param_group in self.optimizer.param_groups]), frame)
+            self.tb_writer.add_scalar('Loss/Total Loss', loss.item(), tstep)
+            self.tb_writer.add_scalar('Learning/Learning Rate', np.mean([param_group['lr'] for param_group in self.optimizer.param_groups]), tstep)
 
             #log weight norm
             weight_norm = 0.
@@ -213,7 +232,7 @@ class Model(BaseAgent):
                 param_norm = p.data.norm(2)
                 weight_norm += param_norm.item() ** 2
             weight_norm = weight_norm ** (1./2.)
-            self.tb_writer.add_scalar('Learning/Weight Norm', weight_norm, frame)
+            self.tb_writer.add_scalar('Learning/Weight Norm', weight_norm, tstep)
 
             #log grad_norm
             grad_norm = 0.
@@ -221,7 +240,7 @@ class Model(BaseAgent):
                 param_norm = p.grad.data.norm(2)
                 grad_norm += param_norm.item() ** 2
             grad_norm = grad_norm ** (1./2.)
-            self.tb_writer.add_scalar('Learning/Grad Norm', grad_norm, frame)
+            self.tb_writer.add_scalar('Learning/Grad Norm', grad_norm, tstep)
         
             #log sigma param norm
             if self.config.noisy_nets:
@@ -231,7 +250,7 @@ class Model(BaseAgent):
                         param_norm = p.data.norm(2)
                         sigma_norm += param_norm.item() ** 2
                 sigma_norm = sigma_norm ** (1./2.)
-                self.tb_writer.add_scalar('Policy/Sigma Norm', sigma_norm, frame)
+                self.tb_writer.add_scalar('Policy/Sigma Norm', sigma_norm, tstep)
         
     def get_action(self, s, eps=0.1):
         with torch.no_grad():
@@ -246,7 +265,7 @@ class Model(BaseAgent):
 
     def update_target_model(self):
         self.update_count+=1
-        self.update_count = int(self.update_count) % int(self.config.TARGET_NET_UPDATE_FREQ)
+        self.update_count = int(self.update_count) % int(self.config.target_net_update_freq)
         if self.update_count == 0:
             self.target_model.load_state_dict(self.model.state_dict())
 
@@ -263,3 +282,31 @@ class Model(BaseAgent):
 
     def reset_hx(self, idx):
         pass
+
+    def step(self, current_tstep, step=0):
+        epsilon = self.anneal_eps(current_tstep)
+        self.tb_writer.add_scalar('Policy/Epsilon', epsilon, current_tstep)
+
+        self.actions = self.get_action(self.observations, epsilon)
+
+        self.prev_observations=self.observations
+        self.observations, self.rewards, self.dones, self.infos = self.envs.step(self.actions)
+        
+        self.episode_rewards += self.rewards
+        
+        for idx, done in enumerate(self.dones):
+            if done:
+                self.finish_nstep(idx)
+                self.reset_hx(idx)
+
+                self.tb_writer.add_scalar('Performance/Agent Reward', self.episode_rewards[idx], current_tstep+idx)
+                self.episode_rewards[idx] = 0
+        
+        for idx, info in enumerate(self.infos):
+            if 'episode' in info.keys():
+                self.last_100_rewards.append(info['episode']['r'])
+                self.tb_writer.add_scalar('Performance/Environment Reward', info['episode']['r'], current_tstep+idx)
+                self.tb_writer.add_scalar('Performance/Episode Length', info['episode']['l'], current_tstep+idx)
+
+    def update(self, current_tstep):
+        self.update_(self.prev_observations, self.actions, self.rewards, self.observations, self.dones.astype(int), current_tstep)

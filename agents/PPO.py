@@ -5,13 +5,20 @@ import torch.optim as optim
 import torch.nn as nn
 import torch.nn.functional as F
 
-from agents.A2C import Model as A2C
+from agents.A2C import Agent as A2C
 
-class Model(A2C):
+from utils import LinearSchedule
+
+class Agent(A2C):
     def __init__(self, static_policy=False, env=None, config=None, log_dir='/tmp/gym', tb_writer=None):
-        super(Model, self).__init__(static_policy, env, config, log_dir, tb_writer=tb_writer)
+        super(Agent, self).__init__(static_policy, env, config, log_dir, tb_writer=tb_writer)
 
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.config.lr, eps=self.config.adam_eps)
+        
+        if self.config.anneal_ppo_clip:
+            self.anneal_clip_param_fun = LinearSchedule(self.config.ppo_clip_param, 0.0, 1.0, config.max_tsteps)
+        else:
+            self.anneal_clip_param_fun = LinearSchedule(self.config.ppo_clip_param, None, 1.0, config.max_tsteps)
 
     def compute_loss(self, sample, next_value, clip_param):
         observations_batch, states_batch, actions_batch, value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, adv_targ = sample
@@ -30,16 +37,16 @@ class Model(A2C):
             value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(-clip_param, clip_param)
             value_losses = (values - return_batch).pow(2)
             value_losses_clipped = (value_pred_clipped - return_batch).pow(2)
-            value_loss = 0.5 * torch.max(value_losses, value_losses_clipped).mean()
+            value_loss = torch.max(value_losses, value_losses_clipped).mul(0.5).mean()
         else:
-            value_loss = 0.5 * (return_batch - values).pow(2).mean()
+            value_loss = (return_batch - values).pow(2).mul(0.5).mean()
 
         loss = action_loss + self.config.value_loss_weight * value_loss
         loss -= self.config.entropy_loss_weight * dist_entropy
 
         return loss, action_loss, value_loss, dist_entropy
 
-    def update(self, rollout, next_value, frame):
+    def update_(self, rollout, next_value, tstep):
         rollout.compute_returns(next_value, self.config.gamma)
 
         advantages = rollout.returns[:-1] - rollout.value_preds[:-1]
@@ -50,10 +57,7 @@ class Model(A2C):
         action_loss_epoch = 0
         dist_entropy_epoch = 0
 
-        if self.config.anneal_ppo_clip:
-            clip_param = self.linear_anneal_scalar(self.config.ppo_clip_param, frame, self.config.MAX_FRAMES)
-        else:
-            clip_param = self.config.ppo_clip_param
+        clip_param = self.anneal_clip_param_fun(tstep)
 
         all_grad_norms = []
         all_sigma_norms = []
@@ -61,10 +65,10 @@ class Model(A2C):
         for e in range(self.config.ppo_epoch):
             if self.model.use_gru:
                 data_generator = rollout.recurrent_generator(
-                    advantages, self.config.num_mini_batch)
+                    advantages, self.config.ppo_mini_batch)
             else:
                 data_generator = rollout.feed_forward_generator(
-                    advantages, self.config.num_mini_batch)
+                    advantages, self.config.ppo_mini_batch)
 
 
             for sample in data_generator:
@@ -96,24 +100,21 @@ class Model(A2C):
                 action_loss_epoch += action_loss.item()
                 dist_entropy_epoch += dist_entropy.item()
         
-        value_loss_epoch /= (self.config.ppo_epoch * self.config.num_mini_batch)
-        action_loss_epoch /= (self.config.ppo_epoch * self.config.num_mini_batch)
-        dist_entropy_epoch /= (self.config.ppo_epoch * self.config.num_mini_batch)
+        value_loss_epoch /= (self.config.ppo_epoch * self.config.ppo_mini_batch)
+        action_loss_epoch /= (self.config.ppo_epoch * self.config.ppo_mini_batch)
+        dist_entropy_epoch /= (self.config.ppo_epoch * self.config.ppo_mini_batch)
         total_loss = value_loss_epoch + action_loss_epoch + dist_entropy_epoch
 
-        self.tb_writer.add_scalar('Loss/Total Loss', total_loss, frame)
-        self.tb_writer.add_scalar('Loss/Policy Loss', action_loss_epoch, frame)
-        self.tb_writer.add_scalar('Loss/Value Loss', value_loss_epoch, frame)
-        self.tb_writer.add_scalar('Loss/Forward Dynamics Loss', 0., frame)
-        self.tb_writer.add_scalar('Loss/Inverse Dynamics Loss', 0., frame)
-        self.tb_writer.add_scalar('Policy/Entropy', dist_entropy_epoch, frame)
-        self.tb_writer.add_scalar('Policy/Value Estimate', 0, frame)
-        self.tb_writer.add_scalar('Policy/Sigma Norm', np.mean(all_sigma_norms), frame)
-        self.tb_writer.add_scalar('Learning/Learning Rate', np.mean([param_group['lr'] for param_group in self.optimizer.param_groups]), frame)
-        self.tb_writer.add_scalar('Learning/Grad Norm', np.mean(all_grad_norms), frame)
+        self.tb_writer.add_scalar('Loss/Total Loss', total_loss, tstep)
+        self.tb_writer.add_scalar('Loss/Policy Loss', action_loss_epoch, tstep)
+        self.tb_writer.add_scalar('Loss/Value Loss', value_loss_epoch, tstep)
+        self.tb_writer.add_scalar('Loss/Forward Dynamics Loss', 0., tstep)
+        self.tb_writer.add_scalar('Loss/Inverse Dynamics Loss', 0., tstep)
+        self.tb_writer.add_scalar('Policy/Entropy', dist_entropy_epoch, tstep)
+        self.tb_writer.add_scalar('Policy/Value Estimate', 0, tstep)
+        if all_sigma_norms:
+            self.tb_writer.add_scalar('Policy/Sigma Norm', np.mean(all_sigma_norms), tstep)
+        self.tb_writer.add_scalar('Learning/Learning Rate', np.mean([param_group['lr'] for param_group in self.optimizer.param_groups]), tstep)
+        self.tb_writer.add_scalar('Learning/Grad Norm', np.mean(all_grad_norms), tstep)
 
         return value_loss_epoch, action_loss_epoch, dist_entropy_epoch, 0.
-    
-    def linear_anneal_scalar(self, initial_val, frame, max_frames):
-        val = initial_val - (initial_val * (frame / float(max_frames)))
-        return val

@@ -3,17 +3,17 @@ import numpy as np
 import torch
 import torch.optim as optim
 
-from agents.DQN import Model as DQN_Agent
+from agents.DQN import Agent as DQN_Agent
 from networks.networks import DRQN
 from utils.ReplayMemory import RecurrentExperienceReplayMemory
 from utils.hyperparameters import Config
 from networks.network_bodies import AtariBody, SimpleBody
 
-class Model(DQN_Agent):
+class Agent(DQN_Agent):
     def __init__(self, static_policy=False, env=None, config=None, log_dir='/tmp/gym'):
-        self.sequence_length=config.SEQUENCE_LENGTH
+        self.sequence_length=config.drqn_sequence_length
 
-        super(Model, self).__init__(static_policy, env, config, log_dir=log_dir)
+        super(Agent, self).__init__(static_policy, env, config, log_dir=log_dir)
 
         self.reset_hx()
     
