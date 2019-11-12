@@ -18,9 +18,9 @@ class AtariBody(nn.Module):
 
         # NOTE: got initialization tip from: https://towardsdatascience.com/tutorial-double-deep-q-learning-with-dueling-network-architectures-4c1b3fb7f756 
         #   Is this correct?
-        torch.nn.init.kaiming_normal_(self.conv1.weight, nonlinearity='relu')
-        torch.nn.init.kaiming_normal_(self.conv2.weight, nonlinearity='relu')
-        torch.nn.init.kaiming_normal_(self.conv3.weight, nonlinearity='relu')
+        # torch.nn.init.kaiming_normal_(self.conv1.weight, nonlinearity='relu')
+        # torch.nn.init.kaiming_normal_(self.conv2.weight, nonlinearity='relu')
+        # torch.nn.init.kaiming_normal_(self.conv3.weight, nonlinearity='relu')
 
         
     def forward(self, x):

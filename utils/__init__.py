@@ -1,4 +1,4 @@
-import pickle, os, glob
+import pickle, os, glob, math
 
 def save_config(config, base_dir):
     tmp_device = config.device
@@ -76,4 +76,11 @@ class PiecewiseSchedule:
                 return self.schedulers[idx-1](tstep-self.section_ends[idx-1])
         return self.schedulers[-1](tstep-self.section_ends[-2])
 
-            
+class ExponentialSchedule:
+    def __init__(self, start, end, decay, max_steps):
+        self.start = start
+        self.end = end
+        self.decay = decay
+
+    def __call__(self, tstep):
+        return self.end + (self.start - self.end) * math.exp(-1. * tstep / self.decay)            

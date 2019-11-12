@@ -5,6 +5,7 @@
 # TODO: merge to use same config object as dqn_devel
 # TODO roll innermost stuff into a step function 
 #   of the agent for more modularity
+# TODO: Frames need scaled now
 
 import gym
 gym.logger.set_level(40)

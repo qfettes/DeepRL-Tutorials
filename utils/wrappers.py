@@ -12,7 +12,7 @@ from gym import wrappers
 from gym.spaces.box import Box
 
 from baselines import bench
-from baselines.common.atari_wrappers import NoopResetEnv, TimeLimit
+from baselines.common.atari_wrappers import NoopResetEnv, TimeLimit, make_atari, wrap_deepmind
 from baselines.common.atari_wrappers import EpisodicLifeEnv, FireResetEnv, WarpFrame, ScaledFloatFrame, ClipRewardEnv, FrameStack
 
 class MaxAndSkipEnv_custom(gym.Wrapper):
@@ -111,27 +111,12 @@ def make_env_atari(env_id, seed, rank, log_dir, stack_frames=4, adaptive_repeat=
         if log_dir is not None:
             env = bench.Monitor(env, os.path.join(log_dir, str(rank)))
 
-        env = wrap_deepmind_custom(env, episode_life=True, clip_rewards=clip_rewards, frame_stack=stack_frames, scale=True)
+        env = wrap_deepmind_custom(env, episode_life=True, clip_rewards=clip_rewards, frame_stack=stack_frames, scale=False)
         #env = atari_stack_and_repeat(env, stack_frames, adaptive_repeat, sticky_actions)
         env = WrapPyTorch(env)
 
         return env
     return _thunk
-
-def make_env_dqn_atari(env_id, seed, log_dir, stack_frames=4, adaptive_repeat=[4], sticky_actions=0.0, clip_rewards=True):   
-    env = make_atari_custom(env_id, max_episode_steps=None, skip=adaptive_repeat, sticky_actions=0.0)
-    
-    if seed:
-        env.seed(seed)
-
-    if log_dir is not None:
-        env = bench.Monitor(env, os.path.join(log_dir, str(0)))
-
-    env = wrap_deepmind_custom(env, episode_life=True, clip_rewards=clip_rewards, frame_stack=stack_frames, scale=True)
-    #env = atari_stack_and_repeat(env, stack_frames, adaptive_repeat, sticky_actions)
-    env = WrapPyTorch(env)
-
-    return env
 
 
 # class atari_stack_and_repeat(gym.Wrapper):

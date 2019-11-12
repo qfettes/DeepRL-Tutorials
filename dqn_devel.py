@@ -15,8 +15,8 @@ from collections import deque
 import torch
 from torch.utils.tensorboard import SummaryWriter
 
-from utils import save_config, update_linear_schedule, create_directory, LinearSchedule, PiecewiseSchedule
-from utils.wrappers import make_env_atari, make_env_dqn_atari
+from utils import save_config, update_linear_schedule, create_directory, LinearSchedule, PiecewiseSchedule, ExponentialSchedule
+from utils.wrappers import make_env_atari
 from utils.hyperparameters import DQNConfig
 from utils.plot import plot_reward
 
@@ -44,7 +44,8 @@ parser.add_argument('--eps-start', type=float, default=1.0,
 parser.add_argument('--eps-end', nargs='+', type=float, default=[0.1, 0.01],
 					help='ending value of epsilon for each part of the peicewise function (default: [0.1, 0.01])')
 parser.add_argument('--eps-decay', nargs='+', type=float, default=[0.05, 1.0],
-					help='Percent of training at which each eps-end value will be reached via linear decay (default: [0.05, 1.0])')
+					help='Percent of training at which each eps-end value will be reached via linear decay\n. Choose \
+                        a single value > 1.0 to switch to an exponential decay schedule (default: [0.05, 1.0])')
 parser.add_argument('--lr', type=float, default=1e-4,
 					help='learning rate (default: 1e-4)')
 parser.add_argument('--gamma', type=float, default=0.99,
@@ -102,10 +103,8 @@ def train(config):
         if torch.cuda.is_available():
             torch.cuda.manual_seed(config.seed)
 
-    # envs = [make_env_atari(config.env_id, config.seed, i, log_dir, stack_frames=config.stack_frames, adaptive_repeat=config.adaptive_repeat, sticky_actions=config.sticky_actions, clip_rewards=True) for i in range(config.num_envs)]
-    # envs = DummyVecEnv(envs) if len(envs) == 1 else SubprocVecEnv(envs)
-
-    envs = make_env_dqn_atari(config.env_id, config.seed, log_dir, stack_frames=config.stack_frames, adaptive_repeat=config.adaptive_repeat, sticky_actions=config.sticky_actions, clip_rewards=True)
+    envs = [make_env_atari(config.env_id, config.seed, i, log_dir, stack_frames=config.stack_frames, adaptive_repeat=config.adaptive_repeat, sticky_actions=config.sticky_actions, clip_rewards=True) for i in range(config.num_envs)]
+    envs = DummyVecEnv(envs) if len(envs) == 1 else SubprocVecEnv(envs)
 
     model = Model(static_policy=config.inference, env=envs, config=config, log_dir=base_dir, tb_writer=writer)
     
@@ -114,7 +113,10 @@ def train(config):
     last_100_rewards = deque(maxlen=100)
 
     if len(config.epsilon_final) == 1:
-        anneal_eps = LinearSchedule(config.epsilon_start, config.epsilon_final[0], config.epsilon_decay[0], config.MAX_TSTEPS)
+        if config.epsilon_decay[0] > 1.0:
+            anneal_eps = ExponentialSchedule(config.epsilon_start, config.epsilon_final[0], config.epsilon_decay[0], config.MAX_TSTEPS)
+        else:
+            anneal_eps = LinearSchedule(config.epsilon_start, config.epsilon_final[0], config.epsilon_decay[0], config.MAX_TSTEPS)
     else:
         anneal_eps = PiecewiseSchedule(config.epsilon_start, config.epsilon_final, config.epsilon_decay, config.MAX_TSTEPS)
 
@@ -137,39 +139,25 @@ def train(config):
         prev_observations=observations
         observations, rewards, dones, infos = envs.step(actions)
 
-        # model.update(prev_observations, actions, rewards, observations, dones.astype(int), current_tstep)
-        model.update(prev_observations, actions, rewards, observations, int(dones), current_tstep)
+        model.update(prev_observations, actions, rewards, observations, dones.astype(int), current_tstep)
         
         episode_rewards += rewards
         
-        # for idx, done in enumerate(dones):
-        #     if done:
-        #         model.finish_nstep(idx)
-        #         model.reset_hx(idx)
+        for idx, done in enumerate(dones):
+            if done:
+                model.finish_nstep(idx)
+                model.reset_hx(idx)
 
-        #         writer.add_scalar('Performance/Agent Reward', episode_rewards[idx], current_tstep)
-        #         episode_rewards[idx] = 0
+                writer.add_scalar('Performance/Agent Reward', episode_rewards[idx], current_tstep)
+                episode_rewards[idx] = 0
 
-        #         # NOTE: no need to reset env. Vec env handles it
-        if dones:
-            model.finish_nstep(0)
-            model.reset_hx(0)
-
-            writer.add_scalar('Performance/Agent Reward', episode_rewards, current_tstep)
-            episode_rewards = 0
-
-            observations = envs.reset()
+                # NOTE: no need to reset env. Vec env handles it
         
-        # for info in infos:
-        #     if 'episode' in info.keys():
-        #             last_100_rewards.append(info['episode']['r'])
-        #             writer.add_scalar('Performance/Environment Reward', info['episode']['r'], current_tstep)
-        #             writer.add_scalar('Performance/Episode Length', info['episode']['l'], current_tstep)
-
-        if 'episode' in infos.keys():
-            last_100_rewards.append(infos['episode']['r'])
-            writer.add_scalar('Performance/Environment Reward', infos['episode']['r'], current_tstep)
-            writer.add_scalar('Performance/Episode Length', infos['episode']['l'], current_tstep)
+        for info in infos:
+            if 'episode' in info.keys():
+                    last_100_rewards.append(info['episode']['r'])
+                    writer.add_scalar('Performance/Environment Reward', info['episode']['r'], current_tstep)
+                    writer.add_scalar('Performance/Episode Length', info['episode']['l'], current_tstep)
             
         if current_tstep % config.save_threshold == 0:
             model.save_w()

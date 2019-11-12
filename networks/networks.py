@@ -21,8 +21,8 @@ class DQN(nn.Module):
 
         # NOTE: got initialization tip from: https://towardsdatascience.com/tutorial-double-deep-q-learning-with-dueling-network-architectures-4c1b3fb7f756 
         #   Is this correct?
-        torch.nn.init.kaiming_normal_(self.fc1.weight, nonlinearity='relu')
-        torch.nn.init.kaiming_normal_(self.fc2.weight, nonlinearity='linear')
+        # torch.nn.init.kaiming_normal_(self.fc1.weight, nonlinearity='relu')
+        # torch.nn.init.kaiming_normal_(self.fc2.weight, nonlinearity='linear')
         
     def forward(self, x):
         x = self.body(x)
