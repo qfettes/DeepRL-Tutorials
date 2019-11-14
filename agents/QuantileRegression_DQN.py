@@ -7,12 +7,12 @@ from networks.network_bodies import SimpleBody, AtariBody
 from networks.networks import QRDQN
 
 class Agent(DQN_Agent):
-    def __init__(self, static_policy=False, env=None, config=None, log_dir='/tmp/gym'):
+    def __init__(self, env=None, config=None, log_dir='/tmp/gym'):
         self.num_quantiles = config.quantiles
         self.cumulative_density = torch.tensor((2 * np.arange(self.num_quantiles) + 1) / (2.0 * self.num_quantiles), device=config.device, dtype=torch.float) 
         self.quantile_weight = 1.0 / self.num_quantiles
 
-        super(Agent, self).__init__(static_policy, env, config, log_dir=log_dir)
+        super(Agent, self).__init__(env=env, config=config, log_dir=log_dir, tb_writer=tb_writer)
     
     
     def declare_networks(self):
@@ -58,7 +58,7 @@ class Agent(DQN_Agent):
 
     def get_action(self, s, eps):
         with torch.no_grad():
-            if np.random.random() >= eps or self.static_policy or self.noisy:
+            if np.random.random() >= eps or self.noisy:
                 X = torch.tensor([s], device=self.device, dtype=torch.float) 
                 self.model.sample_noise()
                 a = (self.model(X) * self.quantile_weight).sum(dim=2).max(dim=1)[1]

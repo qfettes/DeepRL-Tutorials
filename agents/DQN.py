@@ -17,10 +17,9 @@ np.set_printoptions(threshold=sys.maxsize)
 from utils import LinearSchedule, PiecewiseSchedule, ExponentialSchedule
 
 class Agent(BaseAgent):
-    def __init__(self, static_policy=False, env=None, config=None, log_dir='/tmp/gym', tb_writer=None):
-        super(Agent, self).__init__(config=config, env=env, log_dir=log_dir, tb_writer=tb_writer)
+    def __init__(self, env=None, config=None, log_dir='/tmp/gym', tb_writer=None):
+        super(Agent, self).__init__(env=env, config=config, log_dir=log_dir, tb_writer=tb_writer)
         self.config = config
-        self.static_policy = static_policy
         self.num_feats = env.observation_space.shape
         self.num_actions = env.action_space.n * len(config.adaptive_repeat)
         self.envs = env
@@ -37,7 +36,7 @@ class Agent(BaseAgent):
         self.model = self.model.to(self.config.device)
         self.target_model.to(self.config.device)
 
-        if self.static_policy:
+        if self.config.inference:
             self.model.eval()
             self.target_model.eval()
         else:
@@ -47,6 +46,8 @@ class Agent(BaseAgent):
         self.declare_memory()
         self.update_count = 0
         # self.nstep_buffer = []
+
+        self.first_action = True
 
         self.training_priors()
 
@@ -201,9 +202,6 @@ class Agent(BaseAgent):
         return loss
 
     def update_(self, s, a, r, s_, terminal, tstep=0):
-        if self.static_policy:
-            return None
-
         self.append_to_replay(s, a, r, s_, terminal)
 
         if tstep < self.config.learn_start:
@@ -254,7 +252,10 @@ class Agent(BaseAgent):
         
     def get_action(self, s, eps=0.1):
         with torch.no_grad():
-            if np.random.random() > eps or self.static_policy or self.config.noisy_nets:
+            if self.first_action:
+                self.add_graph(s)
+
+            if np.random.random() > eps or self.config.noisy_nets:
                 X = torch.from_numpy(s).to(self.config.device).to(torch.float).view((-1,)+self.num_feats)
                 X = X if self.config.s_norm is None else X/self.config.s_norm
 
@@ -271,6 +272,13 @@ class Agent(BaseAgent):
 
     def get_max_next_state_action(self, next_states):
         return self.target_model(next_states).max(dim=1)[1].view(-1, 1)
+
+    def add_graph(self, inp):
+        with torch.no_grad():
+            X = torch.from_numpy(inp).to(self.config.device).to(torch.float).view((-1,)+self.num_feats)
+            X = X if self.config.s_norm is None else X/self.config.s_norm
+            self.tb_writer.add_graph(self.model, X)
+            self.first_action = False
 
     def finish_nstep(self, idx):
         # while len(self.nstep_buffer) > 0:

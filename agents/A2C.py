@@ -11,14 +11,12 @@ from agents.BaseAgent import BaseAgent
 from networks.networks import ActorCritic
 from utils.RolloutStorage import RolloutStorage
 
-from timeit import default_timer as timer
 from collections import deque
 
 class Agent(BaseAgent):
-    def __init__(self, static_policy=False, env=None, config=None, log_dir='/tmp/gym', tb_writer=None):
-        super(Agent, self).__init__(config=config, env=env, log_dir=log_dir, tb_writer=tb_writer)
+    def __init__(self, env=None, config=None, log_dir='/tmp/gym', tb_writer=None):
+        super(Agent, self).__init__(env=env, config=config, log_dir=log_dir, tb_writer=tb_writer)
         self.config = config
-        self.static_policy = static_policy
         self.num_feats = env.observation_space.shape
         self.num_actions = env.action_space.n * len(config.adaptive_repeat)
         self.envs = env
@@ -30,7 +28,7 @@ class Agent(BaseAgent):
         #move to correct device
         self.model = self.model.to(self.config.device)
 
-        if self.static_policy:
+        if self.config.inference:
             self.model.eval()
         else:
             self.model.train()
@@ -42,6 +40,8 @@ class Agent(BaseAgent):
         self.value_losses = []
         self.entropy_losses = []
         self.policy_losses = []
+        
+        self.first_action = True
 
         self.training_priors()
 
@@ -62,6 +62,9 @@ class Agent(BaseAgent):
         self.last_100_rewards = deque(maxlen=100)
 
     def get_action(self, s, states, masks, deterministic=False):
+        if self.first_action:
+            self.add_graph(s, states, masks)
+
         logits, values, states = self.model(s, states, masks)
         dist = torch.distributions.Categorical(logits=logits)
 
@@ -160,6 +163,10 @@ class Agent(BaseAgent):
 
         return value_loss.item(), action_loss.item(), dist_entropy.item(), dynamics_loss
 
+    def add_graph(self, inp, states, masks):
+        with torch.no_grad():
+            self.tb_writer.add_graph(self.model, (inp, states, masks))
+            self.first_action = False
     
     def step(self, current_timestep, step=0):
         with torch.no_grad():

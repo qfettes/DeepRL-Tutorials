@@ -8,14 +8,14 @@ from networks.networks import CategoricalDQN
 
 
 class Agent(DQN_Agent):
-    def __init__(self, static_policy=False, env=None, config=None, log_dir='/tmp/gym'):
+    def __init__(self, env=None, config=None, log_dir='/tmp/gym'):
         self.atoms = config.atoms
         self.v_max = config.v_max
         self.v_min = config.v_min
         self.supports = torch.linspace(self.v_min, self.v_max, self.atoms).view(1, 1, self.atoms).to(config.device)
         self.delta = (self.v_max - self.v_min) / (self.atoms - 1)
 
-        super(Agent, self).__init__(static_policy, env, config, log_dir=log_dir)
+        super(Agent, self).__init__(env=env, config=config, log_dir=log_dir, tb_writer=tb_writer)
 
     def declare_networks(self):
         self.model = CategoricalDQN(self.env.observation_space.shape, self.env.action_space.n, noisy=self.noisy, sigma_init=self.sigma_init, atoms=self.atoms)
@@ -69,7 +69,7 @@ class Agent(DQN_Agent):
 
     def get_action(self, s, eps):
         with torch.no_grad():
-            if np.random.random() >= eps or self.static_policy or self.noisy:
+            if np.random.random() >= eps or self.noisy:
                 X = torch.tensor([s], device=self.device, dtype=torch.float) 
                 self.model.sample_noise()
                 a = self.model(X) * self.supports

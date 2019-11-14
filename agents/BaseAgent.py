@@ -8,13 +8,26 @@ import torch.optim as optim
 
 
 class BaseAgent(object):
-    def __init__(self, config, env, log_dir='/tmp/gym', tb_writer=None):
+    def __init__(self, env, config, log_dir='/tmp/gym', tb_writer=None):
         self.model=None
         self.target_model=None
         self.optimizer = None
 
         self.log_dir = log_dir
         self.tb_writer=tb_writer
+        
+        # # upload hparms to tensorboard
+        # log_config = config.__dict__.copy()
+        # tmp_device = log_config['device']
+        # log_config['device'] = 0
+        # tmp_seed = log_config['seed']
+        # log_config['seed'] = -1 if log_config['seed'] is None else log_config['seed']
+        # tensor_type = None
+        # for key in log_config.keys():
+        #     if type(log_config[key]) == list:
+        #         log_config[key] = torch.tensor(log_config[key]).to(torch.float16)
+        #         tensor_type = type(log_config[key])
+        # self.tb_writer.add_hparams(log_config, {'Performance/Agent Reward':0.0, 'Performance/Environment Reward':0})
 
         self.rewards = []
 

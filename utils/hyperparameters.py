@@ -22,13 +22,13 @@ class Config(object):
         self.sticky_actions = 0.0
 
         #Learning control variables
-        self.max_tsteps = 100000
-        self.learn_start = 10000
+        self.max_tsteps = int(1e7)
+        self.learn_start = int(8e4)
         self.num_envs = 1
-        self.update_freq = 1
+        self.update_freq = 4
         self.lr = 2.5e-4
         self.use_lr_schedule = False
-        self.grad_norm_max = 10.0
+        self.grad_norm_max = 40.0
         self.gamma = 0.99
 
         #RMSProp params
@@ -36,17 +36,17 @@ class Config(object):
         self.rms_eps = 1e-5
 
         #adam params
-        self.adm_eps = 1e-8
+        self.adm_eps = 1e-4
 
         # Replay memory
-        self.exp_replay_size = 1000000
+        self.exp_replay_size = int(1e6)
         self.batch_size = 32
-        self.target_net_update_freq = 10000
+        self.target_net_update_freq = int(1e4)
 
         #epsilon variables
         self.epsilon_start = 1.0
-        self.epsilon_final = [0.01]
-        self.epsilon_decay = [0.1]
+        self.epsilon_final = [0.1, 0.01]
+        self.epsilon_decay = [0.1, 1.0]
 
         #Multi-step returns
         self.N_steps = 1
@@ -82,15 +82,15 @@ class Config(object):
 
         # a2c controls
         self.entropy_loss_weight = 0.01
-        self.value_loss_weight = 1.0
+        self.value_loss_weight = 0.5
 
         # gae control
-        self.use_gae = True
+        self.use_gae = False
         self.gae_tau = 0.95
 
         #PPO controls
         self.ppo_epoch = 3
         self.ppo_mini_batch = 32
         self.ppo_clip_param = 0.1
-        self.use_ppo_vf_clip = True
+        self.use_ppo_vf_clip = False
         self.anneal_ppo_clip = True

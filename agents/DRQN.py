@@ -10,10 +10,10 @@ from utils.hyperparameters import Config
 from networks.network_bodies import AtariBody, SimpleBody
 
 class Agent(DQN_Agent):
-    def __init__(self, static_policy=False, env=None, config=None, log_dir='/tmp/gym'):
+    def __init__(self, env=None, config=None, log_dir='/tmp/gym'):
         self.sequence_length=config.drqn_sequence_length
 
-        super(Agent, self).__init__(static_policy, env, config, log_dir=log_dir)
+        super(Agent, self).__init__(env=env, config=config, log_dir=log_dir, tb_writer=tb_writer)
 
         self.reset_hx()
     
@@ -73,7 +73,7 @@ class Agent(DQN_Agent):
         with torch.no_grad():
             self.seq.pop(0)
             self.seq.append(s)
-            if np.random.random() >= eps or self.static_policy or self.noisy:
+            if np.random.random() >= eps or self.noisy:
                 X = torch.tensor([self.seq], device=self.device, dtype=torch.float) 
                 self.model.sample_noise()
                 a, _ = self.model(X)

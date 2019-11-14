@@ -1,6 +1,9 @@
 
 # TODO: Add param to select device
 # TODO: should we log recurrent policy gradient methods differently?
+# TODO: fix graph for recurrent a2c
+# TODO: add hparams to tensorboard
+# TODO: add video to tensorboard
 
 import gym
 gym.logger.set_level(40)
@@ -20,6 +23,8 @@ from utils.plot import plot_reward
 
 from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
 from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
+
+from IPython.display import clear_output
 
 parser = argparse.ArgumentParser(description='RL')
 # Meta Info
@@ -143,7 +148,7 @@ parser.add_argument('--disable-ppo-clip-value', action='store_false', default=Tr
 parser.add_argument('--disable-ppo-clip-schedule', action='store_false', default=True,
 					help='DON\'T linearly decay ppo clip by maximum timestep')
 
-def train(config):
+def train(config, Agent, ipynb=False):
     #make/clear directories for logging
     base_dir = os.path.join('./results/', config.algo, config.env_id)
     log_dir = os.path.join(base_dir, 'logs/')   
@@ -155,7 +160,7 @@ def train(config):
     create_directory(tb_dir)
 
     #Tensorboard writer
-    writer = SummaryWriter(log_dir=os.path.join(base_dir, 'runs'))
+    writer = SummaryWriter(log_dir=tb_dir, comment='stuff')
     
     #save configuration for later reference
     save_config(config, base_dir)
@@ -171,12 +176,15 @@ def train(config):
     envs = [make_env_atari(config.env_id, config.seed, i, log_dir, stack_frames=config.stack_frames, adaptive_repeat=config.adaptive_repeat, sticky_actions=config.sticky_actions, clip_rewards=True) for i in range(config.num_envs)]
     envs = DummyVecEnv(envs) if len(envs) == 1 else SubprocVecEnv(envs)
 
-    agent = Agent(static_policy=config.inference, env=envs, config=config, log_dir=base_dir, tb_writer=writer)
+    agent = Agent(env=envs, config=config, log_dir=base_dir, tb_writer=writer)
 
     max_epochs = int(config.max_tsteps / config.num_envs / config.update_freq)
-    progress = tqdm.tqdm(range(1, max_epochs + 1))
-    progress.set_description("Updates %d, Tsteps %d, Time %.2f, FPS %d, mean/median R %.1f/%.1f, min/max R %.1f/%.1f" %
-        (0, 0 , 0, 0, 0.0, 0.0, 0.0, 0.0))
+
+    progress = range(1, max_epochs + 1)
+    if not ipynb:
+        progress = tqdm.tqdm(range(1, max_epochs + 1))
+        progress.set_description("Updates %d, Tsteps %d, Time %.2f, FPS %d, mean/median R %.1f/%.1f, min/max R %.1f/%.1f" %
+            (0, 0 , 0, 0, 0.0, 0.0, 0.0, 0.0))
 
     start = timer()
     for epoch in progress:
@@ -198,30 +206,40 @@ def train(config):
 
         if epoch % config.print_threshold == 0 and agent.last_100_rewards:
             end = timer()
+            if not ipynb:
+                progress.set_description("Upd. %d, Tsteps %d, Time %s, FPS %d, mean/median R %.1f/%.1f, min/max R %.1f/%.1f" %
+                    (int(np.max([(current_tstep-config.learn_start)/config.update_freq, 0])),
+                    current_tstep,
+                    str(timedelta(seconds=end-start)).split('.')[0],
+                    int(current_tstep*np.mean(config.adaptive_repeat) / (end - start)),
+                    np.mean(agent.last_100_rewards),
+                    np.median(agent.last_100_rewards),
+                    np.min(agent.last_100_rewards),
+                    np.max(agent.last_100_rewards))
+                )
+            else:
+                clear_output(True)
+                plot_reward(log_dir, config.env_id, config.max_tsteps, bin_size=10, smooth=1, \
+                    time=timedelta(seconds=end-start), save_filename='results.png', ipynb=True)
+            
+
+    end = timer()
+    if(agent.last_100_rewards):
+        if not ipynb:
             progress.set_description("Upd. %d, Tsteps %d, Time %s, FPS %d, mean/median R %.1f/%.1f, min/max R %.1f/%.1f" %
-                (int(np.max([(current_tstep-config.learn_start)/config.update_freq, 0])),
-                current_tstep,
+                (int(np.max([(config.max_tsteps-config.learn_start)/config.update_freq, 0])),
+                config.max_tsteps,
                 str(timedelta(seconds=end-start)).split('.')[0],
-                int(current_tstep*np.mean(config.adaptive_repeat) / (end - start)),
+                int(config.max_tsteps*np.mean(config.adaptive_repeat) / (end - start)),
                 np.mean(agent.last_100_rewards),
                 np.median(agent.last_100_rewards),
                 np.min(agent.last_100_rewards),
                 np.max(agent.last_100_rewards))
             )
-            
-
-    end = timer()
-    if(agent.last_100_rewards):
-        progress.set_description("Upd. %d, Tsteps %d, Time %s, FPS %d, mean/median R %.1f/%.1f, min/max R %.1f/%.1f" %
-            (int(np.max([(config.max_tsteps-config.learn_start)/config.update_freq, 0])),
-            config.max_tsteps,
-            str(timedelta(seconds=end-start)).split('.')[0],
-            int(config.max_tsteps*np.mean(config.adaptive_repeat) / (end - start)),
-            np.mean(agent.last_100_rewards),
-            np.median(agent.last_100_rewards),
-            np.min(agent.last_100_rewards),
-            np.max(agent.last_100_rewards))
-        )
+        else:
+            clear_output(True)
+            plot_reward(log_dir, config.env_id, config.max_tsteps, bin_size=10, smooth=1,
+                time=timedelta(seconds=end-start), save_filename='results.png', ipynb=True)
         
     agent.save_w()
     envs.close()
@@ -330,4 +348,4 @@ if __name__=='__main__':
     config.use_ppo_vf_clip = args.disable_ppo_clip_value
     config.anneal_ppo_clip = args.disable_ppo_clip_schedule
 
-    train(config)
+    train(config, Agent)
