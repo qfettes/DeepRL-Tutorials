@@ -103,6 +103,8 @@ parser.add_argument('--eps-decay', nargs='+', type=float, default=[0.05, 1.0],
                         a single value > 1.0 to switch to an exponential decay schedule (default: [0.05, 1.0])')
 
 # Nstep
+parser.add_argument('--n-steps', type=int, default=1,
+					help='Value of N used in N-Step Q-Learning (default: 1)')
 
 # Double DQN
 
@@ -304,7 +306,7 @@ if __name__=='__main__':
     config.epsilon_decay = args.eps_decay
 
     # Multi-step returns
-    # config.N_steps = 1
+    config.N_steps = args.n_steps
 
     # Double DQN
 

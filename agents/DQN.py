@@ -45,7 +45,7 @@ class Agent(BaseAgent):
 
         self.declare_memory()
         self.update_count = 0
-        # self.nstep_buffer = []
+        self.nstep_buffer = []
 
         self.first_action = True
 
@@ -78,20 +78,24 @@ class Agent(BaseAgent):
         #TODO: Naive. This is implemented like rainbow.
         # However, true nstep q learning requires
         # off-policy correction
-        # self.nstep_buffer.append((s, a, r, s_))
+        self.nstep_buffer.append((s, a, r, s_, t))
 
-        # if(len(self.nstep_buffer)<self.config.N_steps):
-        #     return
+        if(len(self.nstep_buffer)<self.config.N_steps):
+            return
         
-        # R = sum([self.nstep_buffer[i][2]*(self.config.gamma**i) for i in range(self.config.N_steps)])
-        # state, action, _, _ = self.nstep_buffer.pop(0)
+        R = np.zeros_like(r)
+        T = np.zeros_like(t)
+        for idx, transition in enumerate(reversed(self.nstep_buffer)):
+            exp_ = len(self.nstep_buffer) - idx - 1
+            R *= transition[4]
+            R += (self.config.gamma**exp_) * transition[2]
 
-        # self.memory.push((state, action, R, s_))
-        
-        # self.memory.push((s, a, r, s_))
-        
-        # self.memory.push((s, a, r, s_, t))
-        for state, action, reward, next_state, terminal in zip(s, a, r, s_, t):
+            T += transition[4]
+        T = np.clip(T, 0, 1)
+
+        S, A, _, _, _ = self.nstep_buffer.pop(0)
+
+        for state, action, reward, next_state, terminal in zip(S, A, R, s_, T):
             self.memory.push((state, action, reward, next_state, terminal))
 
     # NOTE: Made to work with OpenAI Gym's experience replay
@@ -174,7 +178,7 @@ class Agent(BaseAgent):
             # # expected_q_values = batch_reward + ((self.config.gamma**self.config.N_steps)*max_next_q_values)
             # expected_q_values = batch_reward + self.config.gamma*max_next_q_values
             
-            next_q_values = self.config.gamma * self.target_model(batch_next_state).max(dim=1)[0].view(-1, 1) * (1.0 - batch_terminal)
+            next_q_values = self.config.gamma**config.N_steps * self.target_model(batch_next_state).max(dim=1)[0].view(-1, 1) * (1.0 - batch_terminal)
             # max_next_action = self.model(batch_next_state).max(dim=1)[1].view(-1, 1) # try double learning
             # next_q_values = self.config.gamma * self.target_model(batch_next_state).gather(1, max_next_action) * (1.0 - batch_terminal)
             target = batch_reward + next_q_values
@@ -201,9 +205,7 @@ class Agent(BaseAgent):
 
         return loss
 
-    def update_(self, s, a, r, s_, terminal, tstep=0):
-        self.append_to_replay(s, a, r, s_, terminal)
-
+    def update_(self, tstep=0):
         if tstep < self.config.learn_start:
             return None
 
@@ -270,23 +272,12 @@ class Agent(BaseAgent):
         if self.update_count == 0:
             self.target_model.load_state_dict(self.model.state_dict())
 
-    def get_max_next_state_action(self, next_states):
-        return self.target_model(next_states).max(dim=1)[1].view(-1, 1)
-
     def add_graph(self, inp):
         with torch.no_grad():
             X = torch.from_numpy(inp).to(self.config.device).to(torch.float).view((-1,)+self.num_feats)
             X = X if self.config.s_norm is None else X/self.config.s_norm
             self.tb_writer.add_graph(self.model, X)
             self.first_action = False
-
-    def finish_nstep(self, idx):
-        # while len(self.nstep_buffer) > 0:
-        #     R = sum([self.nstep_buffer[i][2]*(self.config.gamma**i) for i in range(len(self.nstep_buffer))])
-        #     state, action, _, _ = self.nstep_buffer.pop(0)
-
-        #     self.memory.push((state, action, R, None))
-        pass
 
     def reset_hx(self, idx):
         pass
@@ -299,12 +290,13 @@ class Agent(BaseAgent):
 
         self.prev_observations=self.observations
         self.observations, self.rewards, self.dones, self.infos = self.envs.step(self.actions)
+
+        self.append_to_replay(self.prev_observations, self.actions, self.rewards, self.observations, self.dones.astype(int))
         
         self.episode_rewards += self.rewards
         
         for idx, done in enumerate(self.dones):
             if done:
-                self.finish_nstep(idx)
                 self.reset_hx(idx)
 
                 self.tb_writer.add_scalar('Performance/Agent Reward', self.episode_rewards[idx], current_tstep+idx)
@@ -317,4 +309,4 @@ class Agent(BaseAgent):
                 self.tb_writer.add_scalar('Performance/Episode Length', info['episode']['l'], current_tstep+idx)
 
     def update(self, current_tstep):
-        self.update_(self.prev_observations, self.actions, self.rewards, self.observations, self.dones.astype(int), current_tstep)
+        self.update_(current_tstep)
