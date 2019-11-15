@@ -36,7 +36,7 @@ class Config(object):
         self.rms_eps = 1e-5
 
         #adam params
-        self.adm_eps = 1e-4
+        self.adam_eps = 1e-4
 
         # Replay memory
         self.exp_replay_size = int(1e6)
@@ -90,7 +90,7 @@ class Config(object):
 
         #PPO controls
         self.ppo_epoch = 3
-        self.ppo_mini_batch = 32
+        self.ppo_mini_batch = 4
         self.ppo_clip_param = 0.1
         self.use_ppo_vf_clip = False
         self.anneal_ppo_clip = True

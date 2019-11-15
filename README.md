@@ -37,7 +37,7 @@ python train.py --algo a2c --print-threshold 100 --max-tsteps 10000000 --learn-s
 python train.py --algo a2c --print-threshold 25 --save-threshold 250 --max-tsteps 10000000 --learn-start 0 --nenvs 16 --update-freq 20 --lr 0.0007 --anneal-lr --max-grad-norm 0.5 --recurrent-policy-gradient
 
 ### PPO:
-python train.py --algo ppo --print-threshold 10 --save-threshold 100 --max-tsteps 10000000 --learn-start 0 --nenvs 8 --update-freq 128 --lr 2.5e-4 --anneal-lr --max-grad-norm 0.5 --adam-eps 1.0e-5 --enable-gae --disable-ppo-clip-value
+python train.py --algo ppo --print-threshold 10 --save-threshold 100 --max-tsteps 10000000 --learn-start 0 --nenvs 8 --update-freq 128 --lr 2.5e-4 --anneal-lr --max-grad-norm 0.5 --adam-eps 1.0e-5 --value-loss-weight 1.0 --enable-gae --disable-ppo-clip-value
     
 ## Requirements: 
 
