@@ -178,7 +178,7 @@ class Agent(BaseAgent):
             # # expected_q_values = batch_reward + ((self.config.gamma**self.config.N_steps)*max_next_q_values)
             # expected_q_values = batch_reward + self.config.gamma*max_next_q_values
             
-            next_q_values = self.config.gamma**config.N_steps * self.target_model(batch_next_state).max(dim=1)[0].view(-1, 1) * (1.0 - batch_terminal)
+            next_q_values = self.config.gamma**self.config.N_steps * self.target_model(batch_next_state).max(dim=1)[0].view(-1, 1) * (1.0 - batch_terminal)
             # max_next_action = self.model(batch_next_state).max(dim=1)[1].view(-1, 1) # try double learning
             # next_q_values = self.config.gamma * self.target_model(batch_next_state).gather(1, max_next_action) * (1.0 - batch_terminal)
             target = batch_reward + next_q_values
