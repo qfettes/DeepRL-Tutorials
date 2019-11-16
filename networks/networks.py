@@ -18,11 +18,6 @@ class DQN(nn.Module):
 
         self.fc1 = nn.Linear(self.body.feature_size(), 512) if not self.noisy else NoisyLinear(self.body.feature_size(), 512, sigma_init)
         self.fc2 = nn.Linear(512, self.num_actions) if not self.noisy else NoisyLinear(512, self.num_actions, sigma_init)
-
-        # NOTE: got initialization tip from: https://towardsdatascience.com/tutorial-double-deep-q-learning-with-dueling-network-architectures-4c1b3fb7f756 
-        #   Is this correct?
-        # torch.nn.init.kaiming_normal_(self.fc1.weight, nonlinearity='relu')
-        # torch.nn.init.kaiming_normal_(self.fc2.weight, nonlinearity='linear')
         
     def forward(self, x):
         x = self.body(x)

@@ -30,6 +30,9 @@ python train.py --env-name PongNoFrameskip-v4 --stack-frames 1 --eps-end 0.01 --
 ### DQN
 python train.py
 
+### N-Step DQN
+python train.py --n-steps 3
+
 ### A2C:
 python train.py --algo a2c --print-threshold 100 --max-tsteps 10000000 --learn-start 0 --nenvs 16 --update-freq 5 --lr 0.0007 --anneal-lr --max-grad-norm 0.5 
 

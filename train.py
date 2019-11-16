@@ -107,8 +107,12 @@ parser.add_argument('--n-steps', type=int, default=1,
 					help='Value of N used in N-Step Q-Learning (default: 1)')
 
 # Double DQN
+parser.add_argument('--double-dqn', action='store_true', default=False,
+					help='Use double learning with dqn')
 
 # Dueling DQN
+parser.add_argument('--dueling-dqn', action='store_true', default=False,
+					help='Use dueling architecture with dqn')
 
 # Noisy Nets
 
@@ -309,8 +313,10 @@ if __name__=='__main__':
     config.N_steps = args.n_steps
 
     # Double DQN
+    config.double_dqn = args.double_dqn
 
     # Dueling DQN
+    config.dueling_dqn = args.dueling_dqn
 
     # Noisy Nets
     # config.sigma_init = 0.5

@@ -52,8 +52,10 @@ class Config(object):
         self.N_steps = 1
 
         # Double Q Learning
+        self.double_dqn = False
 
         # Dueling DQN
+        self.dueling_dqn = False
 
         #Noisy Nets
         self.noisy_nets = False

@@ -4,7 +4,7 @@ import torch
 import torch.optim as optim
 
 from agents.BaseAgent import BaseAgent
-from networks.networks import DQN
+from networks.networks import DQN, DuelingDQN
 from networks.network_bodies import AtariBody, SimpleBody
 from utils.ReplayMemory import ExperienceReplayMemory, PrioritizedReplayMemory
 
@@ -52,8 +52,12 @@ class Agent(BaseAgent):
         self.training_priors()
 
     def declare_networks(self):
-        self.model = DQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody)
-        self.target_model = DQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody)
+        if self.config.dueling_dqn:
+            self.model = DuelingDQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody)
+            self.target_model = DuelingDQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody)
+        else:
+            self.model = DQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody)
+            self.target_model = DQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody)
 
     def declare_memory(self):
         # self.memory = ExperienceReplayMemory(self.config.exp_replay_size) if not self.config.priority_replay else PrioritizedReplayMemory(self.config.exp_replay_size, self.config.priority_alpha, self.config.priority_beta_start, self.config.priority_beta_tsteps)
@@ -75,7 +79,7 @@ class Agent(BaseAgent):
         self.observations = self.envs.reset()
 
     def append_to_replay(self, s, a, r, s_, t):
-        #TODO: Naive. This is implemented like rainbow. However, true nstep 
+        #TODO: Naive. This is implemented like rainbow; however, true nstep 
         # q learning requires off-policy correction
         self.nstep_buffer.append([s, a, r, s_, t])
 
@@ -126,9 +130,13 @@ class Agent(BaseAgent):
         #target
         with torch.no_grad():
             next_q_values = torch.zeros(self.config.batch_size, device=self.config.device, dtype=torch.float).unsqueeze(dim=1)
+            # self.target_model.sample_noise()
             if not empty_next_state_values:
-                # self.target_model.sample_noise()
-                next_q_values[non_final_mask] = (self.config.gamma**self.config.N_steps) * self.target_model(non_final_next_states).max(dim=1)[0].view(-1, 1)
+                if self.config.double_dqn:
+                    max_next_actions = torch.argmax(self.model(non_final_next_states), dim=1).view(-1, 1)
+                    next_q_values[non_final_mask] = (self.config.gamma**self.config.N_steps) * self.target_model(non_final_next_states).gather(1, max_next_actions)
+                else:
+                    next_q_values[non_final_mask] = (self.config.gamma**self.config.N_steps) * self.target_model(non_final_next_states).max(dim=1)[0].view(-1, 1)
             target = batch_reward + next_q_values
 
         # diff = (target - current_q_values)
