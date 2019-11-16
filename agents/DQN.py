@@ -96,13 +96,14 @@ class Agent(BaseAgent):
         S, A, _, _, _ = self.nstep_buffer.pop(0)
 
         for state, action, reward, next_state, terminal in zip(S, A, R, s_, T):
-            self.memory.push((state, action, reward, next_state, terminal))
+            next_state = None if terminal == 1 else next_state
+            self.memory.push((state, action, reward, next_state))
 
     # NOTE: Made to work with OpenAI Gym's experience replay
     #   probably broken with prioritized replay
     def prep_minibatch(self):
         # random transition batch is taken from experience replay memory
-        batch_state, batch_action, batch_reward, batch_next_state, batch_terminal, indices, weights = self.memory.sample(self.config.batch_size)
+        batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights = self.memory.sample(self.config.batch_size)
 
         batch_state = torch.from_numpy(batch_state).to(self.config.device).to(torch.float)
         batch_state = batch_state if self.config.s_norm is None else batch_state/self.config.s_norm
@@ -111,58 +112,15 @@ class Agent(BaseAgent):
         
         batch_reward = torch.from_numpy(batch_reward).to(self.config.device).to(torch.float).unsqueeze(dim=1)
 
-        batch_next_state = torch.from_numpy(batch_next_state).to(self.config.device).to(torch.float)
-        batch_next_state = batch_next_state if self.config.s_norm is None else batch_next_state/self.config.s_norm
+        non_final_mask = torch.from_numpy(non_final_mask).to(self.config.device).to(torch.bool)
+        if not empty_next_state_values:
+            non_final_next_states = torch.from_numpy(non_final_next_states).to(self.config.device).to(torch.float)
+            non_final_next_states = non_final_next_states if self.config.s_norm is None else non_final_next_states/self.config.s_norm
 
-        batch_terminal = torch.from_numpy(batch_terminal).to(self.config.device).to(torch.float).unsqueeze(dim=1)
-
-        return batch_state, batch_action, batch_reward, batch_next_state, batch_terminal, indices, weights
-
-    # def prep_minibatch(self):
-    #     # random transition batch is taken from experience replay memory
-    #     transitions, indices, weights = self.memory.sample(self.config.batch_size)
-        
-    #     # batch_state, batch_action, batch_reward, batch_next_state = zip(*transitions)
-    #     batch_state, batch_action, batch_reward, batch_next_state, batch_terminal = zip(*transitions)
-
-    #     shape = (-1,)+self.num_feats
-
-    #     #making whole structure a np array and using from_numpy avoids costly copy operation
-    #     batch_state = np.stack(batch_state, axis=0)
-    #     batch_state = torch.from_numpy(batch_state).to(self.config.device).to(torch.float).view(shape)
-    #     batch_state = batch_state if self.config.s_norm is None else batch_state/self.config.s_norm
-
-    #     batch_action = np.stack(batch_action, axis=0)
-    #     batch_action = torch.from_numpy(batch_action).to(self.config.device).to(torch.long).view(-1, 1)
-    #     batch_reward = np.stack(batch_reward, axis=0)
-    #     batch_reward = torch.from_numpy(batch_reward).to(self.config.device).to(torch.float).view(-1, 1)
-        
-    #     # non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch_next_state)), device=self.config.device, dtype=torch.bool)
-    #     # try: 
-    #     #     non_final_next_states = np.stack([s for s in batch_next_state if s is not None], axis=0)
-    #     #     non_final_next_states = torch.from_numpy(non_final_next_states).to(self.config.device).to(torch.float).view(shape)
-    #     #     non_final_next_states = non_final_next_states if self.config.s_norm is None else non_final_next_states/self.config.s_norm
-
-    #     #     empty_next_state_values = False
-    #     # except:
-    #     #     #sometimes all next states are false
-    #     #     non_final_next_states = None
-    #     #     empty_next_state_values = True
-
-    #     # NOTE: new
-    #     batch_next_state = np.stack(batch_next_state, axis=0)
-    #     batch_next_state = torch.from_numpy(batch_next_state).to(self.config.device).to(torch.float).view(shape)
-    #     batch_next_state = batch_next_state if self.config.s_norm is None else batch_next_state/self.config.s_norm
-    #     batch_terminal = np.stack(batch_terminal, axis=0)
-    #     batch_terminal = torch.from_numpy(batch_terminal).to(self.config.device).to(torch.float).view(-1, 1)
-
-
-    #     #return batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights
-    #     return batch_state, batch_action, batch_reward, batch_next_state, batch_terminal, indices, weights
+        return batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights
 
     def compute_loss(self, batch_vars, tstep): #faster
-        #batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights = batch_vars
-        batch_state, batch_action, batch_reward, batch_next_state, batch_terminal, indices, weights = batch_vars
+        batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights = batch_vars
 
         #estimate
         # self.model.sample_noise()
@@ -170,17 +128,10 @@ class Agent(BaseAgent):
         
         #target
         with torch.no_grad():
-            # max_next_q_values = torch.zeros(self.config.batch_size, device=self.config.device, dtype=torch.float).unsqueeze(dim=1)
-            # if not empty_next_state_values:
-            #     max_next_action = self.get_max_next_state_action(non_final_next_states)
-            #     # self.target_model.sample_noise()
-            #     max_next_q_values[non_final_mask] = self.target_model(non_final_next_states).gather(1, max_next_action)
-            # # expected_q_values = batch_reward + ((self.config.gamma**self.config.N_steps)*max_next_q_values)
-            # expected_q_values = batch_reward + self.config.gamma*max_next_q_values
-            
-            next_q_values = self.config.gamma**self.config.N_steps * self.target_model(batch_next_state).max(dim=1)[0].view(-1, 1) * (1.0 - batch_terminal)
-            # max_next_action = self.model(batch_next_state).max(dim=1)[1].view(-1, 1) # try double learning
-            # next_q_values = self.config.gamma * self.target_model(batch_next_state).gather(1, max_next_action) * (1.0 - batch_terminal)
+            next_q_values = torch.zeros(self.config.batch_size, device=self.config.device, dtype=torch.float).unsqueeze(dim=1)
+            if not empty_next_state_values:
+                # self.target_model.sample_noise()
+                next_q_values[non_final_mask] = self.config.gamma**self.config.N_steps * self.target_model(non_final_next_states).max(dim=1)[0].view(-1, 1)
             target = batch_reward + next_q_values
 
         # diff = (target - current_q_values)

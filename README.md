@@ -69,7 +69,10 @@ python train.py --algo ppo --print-threshold 10 --save-threshold 100 --max-tstep
     * There is no TD Error Clipping
     * There are no seperate training and evaluation phases
         * Original: Evaluates with a lower epsilon and no learning for 125000 timesteps, every 500000 timesteps
-    * Gradient Norm Clipping at 5.0 added
+* N-step DQN
+    * While this does (seemingly) match how it was described in the RAINBOW paper, it is mathematically incorrect
+    * True N-step learning would require off policy correction, this does not
+    * All DQN differences apply here, too.
 
 # Acknowledgements: 
 * Credit to [@baselines](https://github.com/openai/baselines) for the environment wrappers and inspiration for the prioritized replay code.

@@ -51,16 +51,24 @@ class ExperienceReplayMemory(object):
         self._next_idx = (self._next_idx + 1) % self._maxsize
 
     def _encode_sample(self, idxes):
-        obses_t, actions, rewards, obses_tp1, dones = [], [], [], [], []
+        obses_t, actions, rewards, obses_tp1 = [], [], [], []
         for i in idxes:
             data = self._storage[i]
-            obs_t, action, reward, obs_tp1, done = data
+            obs_t, action, reward, obs_tp1 = data
             obses_t.append(np.array(obs_t, copy=False))
             actions.append(np.array(action, copy=False))
             rewards.append(reward)
-            obses_tp1.append(np.array(obs_tp1, copy=False))
-            dones.append(done)
-        return np.array(obses_t), np.array(actions), np.array(rewards), np.array(obses_tp1), np.array(dones), None, None
+            obses_tp1.append(obs_tp1)
+
+        non_final_mask = np.array(tuple(map(lambda s: s is not None, obses_tp1))).astype(bool)
+        try:
+            non_final_next_states = np.array([s for s in obses_tp1 if s is not None], dtype=int)
+            empty_next_state_values = False
+        except:
+            non_final_next_states = None
+            empty_next_state_values = True
+        
+        return np.array(obses_t), np.array(actions), np.array(rewards), non_final_next_states, non_final_mask, empty_next_state_values, None, None
 
     def sample(self, batch_size):
         """Sample a batch of experiences.

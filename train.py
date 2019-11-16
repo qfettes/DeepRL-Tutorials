@@ -98,9 +98,9 @@ parser.add_argument('--eps-start', type=float, default=1.0,
 					help='starting value of epsilon (default: 1.0)')
 parser.add_argument('--eps-end', nargs='+', type=float, default=[0.1, 0.01],
 					help='ending value of epsilon for each part of the peicewise function (default: [0.1, 0.01])')
-parser.add_argument('--eps-decay', nargs='+', type=float, default=[0.05, 1.0],
+parser.add_argument('--eps-decay', nargs='+', type=float, default=[0.05, 0.5],
 					help='Percent of training at which each eps-end value will be reached via linear decay\n. Choose \
-                        a single value > 1.0 to switch to an exponential decay schedule (default: [0.05, 1.0])')
+                        a single value > 1.0 to switch to an exponential decay schedule (default: [0.05, 0.5])')
 
 # Nstep
 parser.add_argument('--n-steps', type=int, default=1,
