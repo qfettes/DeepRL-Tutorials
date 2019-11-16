@@ -75,10 +75,9 @@ class Agent(BaseAgent):
         self.observations = self.envs.reset()
 
     def append_to_replay(self, s, a, r, s_, t):
-        #TODO: Naive. This is implemented like rainbow.
-        # However, true nstep q learning requires
-        # off-policy correction
-        self.nstep_buffer.append((s, a, r, s_, t))
+        #TODO: Naive. This is implemented like rainbow. However, true nstep 
+        # q learning requires off-policy correction
+        self.nstep_buffer.append([s, a, r, s_, t])
 
         if(len(self.nstep_buffer)<self.config.N_steps):
             return
@@ -87,20 +86,18 @@ class Agent(BaseAgent):
         T = np.zeros_like(t)
         for idx, transition in enumerate(reversed(self.nstep_buffer)):
             exp_ = len(self.nstep_buffer) - idx - 1
-            R *= transition[4]
+            R *= (1.0 - transition[4])
             R += (self.config.gamma**exp_) * transition[2]
 
             T += transition[4]
-        T = np.clip(T, 0, 1)
 
         S, A, _, _, _ = self.nstep_buffer.pop(0)
 
         for state, action, reward, next_state, terminal in zip(S, A, R, s_, T):
-            next_state = None if terminal == 1 else next_state
+            next_state = None if terminal >= 1 else next_state
             self.memory.push((state, action, reward, next_state))
 
-    # NOTE: Made to work with OpenAI Gym's experience replay
-    #   probably broken with prioritized replay
+    # NOTE: Probably broken with priority replay
     def prep_minibatch(self):
         # random transition batch is taken from experience replay memory
         batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights = self.memory.sample(self.config.batch_size)
@@ -119,7 +116,7 @@ class Agent(BaseAgent):
 
         return batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights
 
-    def compute_loss(self, batch_vars, tstep): #faster
+    def compute_loss(self, batch_vars, tstep): 
         batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights = batch_vars
 
         #estimate
@@ -131,7 +128,7 @@ class Agent(BaseAgent):
             next_q_values = torch.zeros(self.config.batch_size, device=self.config.device, dtype=torch.float).unsqueeze(dim=1)
             if not empty_next_state_values:
                 # self.target_model.sample_noise()
-                next_q_values[non_final_mask] = self.config.gamma**self.config.N_steps * self.target_model(non_final_next_states).max(dim=1)[0].view(-1, 1)
+                next_q_values[non_final_mask] = (self.config.gamma**self.config.N_steps) * self.target_model(non_final_next_states).max(dim=1)[0].view(-1, 1)
             target = batch_reward + next_q_values
 
         # diff = (target - current_q_values)

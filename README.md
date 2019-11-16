@@ -25,7 +25,7 @@ The intent of these IPython Notebooks are mostly to help me practice and underst
 14. Proximal Policy Optimization Algorithms [[Publication]](https://arxiv.org/abs/1707.06347)[[code]](https://github.com/qfettes/DeepRL-Tutorials/blob/master/14.PPO.ipynb)
 
 ### DQN (Quick Verification):
-python train.py --env-name PongNoFrameskip-v4 --stack-frames 1 --eps-end 0.01 --eps-decay 30000 --tnet-update 1000 --replay-size 100000 --learn-start 10000 --max-tsteps 1000000 --update-freq 1 --adam-eps 0.00000001
+python train.py --env-name PongNoFrameskip-v4 --stack-frames 1 --eps-end 0.01 --eps-decay 30000 --tnet-update 1000 --replay-size 100000 --learn-start 10000 --max-tsteps 1000000 --update-freq 1 --adam-eps 1.0e-8
 
 ### DQN
 python train.py
