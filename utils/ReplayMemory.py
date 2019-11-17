@@ -68,7 +68,7 @@ class ExperienceReplayMemory(object):
             non_final_next_states = None
             empty_next_state_values = True
         
-        return np.array(obses_t), np.array(actions), np.array(rewards), non_final_next_states, non_final_mask, empty_next_state_values, None, None
+        return (np.array(obses_t), np.array(actions), np.array(rewards), non_final_next_states, non_final_mask, empty_next_state_values), None, None
 
     def sample(self, batch_size):
         """Sample a batch of experiences.
@@ -149,7 +149,24 @@ class PrioritizedReplayMemory(object):
         self._it_min[idx] = self._max_priority ** self._alpha
 
     def _encode_sample(self, idxes):
-        return [self._storage[i] for i in idxes]
+        obses_t, actions, rewards, obses_tp1 = [], [], [], []
+        for i in idxes:
+            data = self._storage[i]
+            obs_t, action, reward, obs_tp1 = data
+            obses_t.append(np.array(obs_t, copy=False))
+            actions.append(np.array(action, copy=False))
+            rewards.append(reward)
+            obses_tp1.append(obs_tp1)
+
+        non_final_mask = np.array(tuple(map(lambda s: s is not None, obses_tp1))).astype(bool)
+        try:
+            non_final_next_states = np.array([s for s in obses_tp1 if s is not None], dtype=int)
+            empty_next_state_values = False
+        except:
+            non_final_next_states = None
+            empty_next_state_values = True
+        
+        return np.array(obses_t), np.array(actions), np.array(rewards), non_final_next_states, non_final_mask, empty_next_state_values
 
     def _sample_proportional(self, batch_size):
         res = []
@@ -210,9 +227,10 @@ class PrioritizedReplayMemory(object):
             p_sample = self._it_sum[idx] / self._it_sum.sum()
             weight = (p_sample * len(self._storage)) ** (-beta)
             weights.append(weight / max_weight)
-        weights = torch.tensor(weights, device=device, dtype=torch.float) 
+        
         encoded_sample = self._encode_sample(idxes)
-        return encoded_sample, idxes, weights
+        
+        return encoded_sample, idxes, np.array(weights, copy=False)
 
     def update_priorities(self, idxes, priorities):
         """Update priorities of sampled transitions.

@@ -29,7 +29,7 @@ class Agent(BaseAgent):
         self.target_model.load_state_dict(self.model.state_dict())
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.config.lr, eps=self.config.adam_eps)
         
-        self.loss_fun = torch.nn.SmoothL1Loss(reduction='mean')
+        self.loss_fun = torch.nn.SmoothL1Loss(reduction='none')
         # self.loss_fun = torch.nn.MSELoss(reduction='mean')
         
         #move to correct device
@@ -60,8 +60,11 @@ class Agent(BaseAgent):
             self.target_model = DQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody)
 
     def declare_memory(self):
-        # self.memory = ExperienceReplayMemory(self.config.exp_replay_size) if not self.config.priority_replay else PrioritizedReplayMemory(self.config.exp_replay_size, self.config.priority_alpha, self.config.priority_beta_start, self.config.priority_beta_tsteps)
-        self.memory = ExperienceReplayMemory(self.config.exp_replay_size)
+        if self.config.priority_replay:
+            self.memory = PrioritizedReplayMemory(self.config.exp_replay_size, self.config.priority_alpha, self.config.priority_beta_start, self.config.priority_beta_tsteps)
+        else:
+            self.memory = ExperienceReplayMemory(self.config.exp_replay_size)
+
 
     def training_priors(self):
         self.episode_rewards = np.zeros(self.config.num_envs)
@@ -104,7 +107,8 @@ class Agent(BaseAgent):
     # NOTE: Probably broken with priority replay
     def prep_minibatch(self):
         # random transition batch is taken from experience replay memory
-        batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights = self.memory.sample(self.config.batch_size)
+        data, indices, weights = self.memory.sample(self.config.batch_size)
+        batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values = data
 
         batch_state = torch.from_numpy(batch_state).to(self.config.device).to(torch.float)
         batch_state = batch_state if self.config.s_norm is None else batch_state/self.config.s_norm
@@ -117,6 +121,9 @@ class Agent(BaseAgent):
         if not empty_next_state_values:
             non_final_next_states = torch.from_numpy(non_final_next_states).to(self.config.device).to(torch.float)
             non_final_next_states = non_final_next_states if self.config.s_norm is None else non_final_next_states/self.config.s_norm
+
+        if self.config.priority_replay:
+            weights = torch.from_numpy(weights).to(self.config.device).to(torch.float).view(-1, 1)
 
         return batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights
 
@@ -139,20 +146,12 @@ class Agent(BaseAgent):
                     next_q_values[non_final_mask] = (self.config.gamma**self.config.N_steps) * self.target_model(non_final_next_states).max(dim=1)[0].view(-1, 1)
             target = batch_reward + next_q_values
 
-        # diff = (target - current_q_values)
-        # if self.config.priority_replay:
-        #     self.memory.update_priorities(indices, diff.detach().squeeze().abs().cpu().numpy().tolist())
-        #     loss = 0.5*diff.pow(2).squeeze()
-        #     loss *= weights
-        #     #TODO: clamp loss here?
-        # else:
-        #     loss = 0.5*diff.pow(2) #squared error in paper
-        #     loss = loss.clamp(-1, 1) #they clamp the error term, not gradient
-        # loss = diff.clamp(-1, 1) #they clamp the error term, not , why -1?
-        # loss = loss.pow(2).mul(0.5)
-        # loss = loss.mean()
-
         loss = self.loss_fun(current_q_values, target)
+        if self.config.priority_replay:
+            with torch.no_grad():
+                self.memory.update_priorities(indices, loss.detach().squeeze().abs().cpu().numpy().tolist())
+            loss *= weights
+        loss = loss.mean()
 
         #log val estimates
         with torch.no_grad():

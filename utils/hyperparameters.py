@@ -54,18 +54,18 @@ class Config(object):
         # Double Q Learning
         self.double_dqn = False
 
+        #priority replay
+        self.priority_replay      = False
+        self.priority_alpha       = 0.6
+        self.priority_beta_start  = 0.4
+        self.priority_beta_tsteps = 100000
+
         # Dueling DQN
         self.dueling_dqn = False
 
         #Noisy Nets
         self.noisy_nets = False
         self.sigma_init = 0.5
-
-        #priority replay
-        self.priority_replay = False
-        self.priority_alpha=0.6
-        self.priority_beta_start=0.4
-        self.priority_beta_tsteps = 100000
 
         #Categorical Params
         self.atoms = 51

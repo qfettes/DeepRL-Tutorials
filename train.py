@@ -1,4 +1,6 @@
 
+# TODO: adjust hyperparameters for priority replay
+# TODO: efficiency for priority replay functions
 # TODO: Add param to select device
 # TODO: fix computation graph for recurrent a2c
 # TODO: add hparams to tensorboard
@@ -110,13 +112,21 @@ parser.add_argument('--n-steps', type=int, default=1,
 parser.add_argument('--double-dqn', action='store_true', default=False,
 					help='Use double learning with dqn')
 
+# Priority Replay
+parser.add_argument('--priority-replay', action='store_true', default=False,
+					help='Use prioritized replay with dqn')
+parser.add_argument('--priority-alpha', type=float, default=0.6,
+					help='Alpha value of prioritized replay (default: 0.6)')
+parser.add_argument('--priority-beta-start', type=float, default=0.4,
+					help='starting value of beta in prioritized replay (default: 0.4)')
+parser.add_argument('--priority-beta-steps', type=int, default=2e7,
+					help='steps over which to anneal priority beta to 1 (default: 2e7)')
+
 # Dueling DQN
 parser.add_argument('--dueling-dqn', action='store_true', default=False,
 					help='Use dueling architecture with dqn')
 
 # Noisy Nets
-
-# Priority Replay
 
 # Categorical DQN
 
@@ -315,16 +325,17 @@ if __name__=='__main__':
     # Double DQN
     config.double_dqn = args.double_dqn
 
+    # Priority Replay
+    config.priority_replay      = args.priority_replay
+    config.priority_alpha       = args.priority_alpha
+    config.priority_beta_start  = args.priority_beta_start
+    config.priority_beta_tsteps = args.priority_beta_steps
+
     # Dueling DQN
     config.dueling_dqn = args.dueling_dqn
 
     # Noisy Nets
     # config.sigma_init = 0.5
-
-    # Priority Replay
-    # config.priority_alpha       = 0.6
-    # config.priority_beta_start  = 0.4
-    # config.priority_beta_tsteps = 100000
 
     #Categorical Params
     # config.atoms = 51
