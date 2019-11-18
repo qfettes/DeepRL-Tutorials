@@ -105,9 +105,9 @@ class Agent(BaseAgent):
             self.memory.push((state, action, reward, next_state))
 
     # NOTE: Probably broken with priority replay
-    def prep_minibatch(self):
+    def prep_minibatch(self, tstep):
         # random transition batch is taken from experience replay memory
-        data, indices, weights = self.memory.sample(self.config.batch_size)
+        data, indices, weights = self.memory.sample(self.config.batch_size, tstep)
         batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values = data
 
         batch_state = torch.from_numpy(batch_state).to(self.config.device).to(torch.float)
@@ -149,7 +149,8 @@ class Agent(BaseAgent):
         loss = self.loss_fun(current_q_values, target)
         if self.config.priority_replay:
             with torch.no_grad():
-                self.memory.update_priorities(indices, loss.detach().squeeze().abs().cpu().numpy().tolist())
+                diff = torch.abs(target - current_q_values).squeeze().cpu().numpy().tolist()
+                self.memory.update_priorities(indices, diff)
             loss *= weights
         loss = loss.mean()
 
@@ -164,7 +165,7 @@ class Agent(BaseAgent):
         if tstep < self.config.learn_start:
             return None
 
-        batch_vars = self.prep_minibatch()
+        batch_vars = self.prep_minibatch(tstep)
 
         loss = self.compute_loss(batch_vars, tstep)
 

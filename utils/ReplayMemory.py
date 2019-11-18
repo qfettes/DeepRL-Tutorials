@@ -70,7 +70,7 @@ class ExperienceReplayMemory(object):
         
         return (np.array(obses_t), np.array(actions), np.array(rewards), non_final_next_states, non_final_mask, empty_next_state_values), None, None
 
-    def sample(self, batch_size):
+    def sample(self, batch_size, tstep=1):
         """Sample a batch of experiences.
 
         Parameters
@@ -121,7 +121,6 @@ class PrioritizedReplayMemory(object):
 
         self.beta_start = beta_start
         self.beta_frames = beta_frames
-        self.frame=1
 
         it_capacity = 1
         while it_capacity < size:
@@ -131,8 +130,8 @@ class PrioritizedReplayMemory(object):
         self._it_min = MinSegmentTree(it_capacity)
         self._max_priority = 1.0
 
-    def beta_by_frame(self, frame_idx):
-        return min(1.0, self.beta_start + frame_idx * (1.0 - self.beta_start) / self.beta_frames)
+    def beta_by_step(self, tstep):
+        return min(1.0, self.beta_start + tstep * (1.0 - self.beta_start) / self.beta_frames)
 
     def push(self, data):
         """See ReplayBuffer.store_effect"""
@@ -177,7 +176,7 @@ class PrioritizedReplayMemory(object):
             res.append(idx)
         return res
 
-    def sample(self, batch_size):
+    def sample(self, batch_size, tstep=1):
         """Sample a batch of experiences.
         compared to ReplayBuffer.sample
         it also returns importance weights and idxes
@@ -217,8 +216,7 @@ class PrioritizedReplayMemory(object):
         #find smallest sampling prob: p_min = smallest priority^alpha / sum of priorities^alpha
         p_min = self._it_min.min() / self._it_sum.sum()
 
-        beta = self.beta_by_frame(self.frame)
-        self.frame+=1
+        beta = self.beta_by_step(tstep)
         
         #max_weight given to smallest prob
         max_weight = (p_min * len(self._storage)) ** (-beta)
@@ -303,7 +301,7 @@ class RecurrentExperienceReplayMemory:
         self.beta_start = beta_start
         self.beta_frames = beta_frames
 
-    def beta_by_frame(self, frame_idx):
+    def beta_by_step(self, frame_idx):
         return min(1.0, self.beta_start + frame_idx * (1.0 - self.beta_start) / self.beta_frames)
     
     def push(self, transition):
@@ -331,7 +329,7 @@ class RecurrentExperienceReplayMemory:
         indices = np.random.choice(total, batch_size, p=probs)
         samples = [self.buffer[idx] for idx in indices]
         
-        beta = self.beta_by_frame(self.frame)
+        beta = self.beta_by_step(self.frame)
         self.frame+=1
 
         #min of ALL probs, not just sampled probs

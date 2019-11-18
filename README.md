@@ -87,6 +87,14 @@ python train.py --algo ppo --print-threshold 10 --save-threshold 100 --max-tstep
     * While this does (seemingly) match how it was described in the RAINBOW paper, it is mathematically incorrect
     * True N-step learning would require off policy correction, this does not
     * All DQN differences apply here, too.
+* Double DQN
+    * All DQN Differences apply here
+    * TNet update is 40000
+        * Original: 30000
+    * There is no evaluation stage
+        * Original: Evaluation Epsilon is 0.001
+    * No shared bias in Output layer
+        * Original: shared bias between every node in output layer
 
 # Acknowledgements: 
 * Credit to [@baselines](https://github.com/openai/baselines) for the environment wrappers and inspiration for the prioritized replay code.
