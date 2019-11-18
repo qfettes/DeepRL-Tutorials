@@ -282,21 +282,21 @@ if __name__=='__main__':
     config.env_id          = args.env_name
     config.seed            = args.seed
     config.inference       = args.inference
-    config.print_threshold = args.print_threshold
-    config.save_threshold  = args.save_threshold
+    config.print_threshold = int(args.print_threshold)
+    config.save_threshold  = int(args.save_threshold)
     config.render          = args.render
 
     # preprocessing
-    config.stack_frames    = args.stack_frames
+    config.stack_frames    = int(args.stack_frames)
     config.adaptive_repeat = args.adaptive_repeat
     config.s_norm          = args.state_norm
     config.sticky_actions  = args.sticky_actions
 
     # Learning Control Variables
-    config.max_tsteps      = args.max_tsteps
-    config.learn_start     = args.learn_start
-    config.num_envs        = args.nenvs
-    config.update_freq     = args.update_freq
+    config.max_tsteps      = int(args.max_tsteps)
+    config.learn_start     = int(args.learn_start)
+    config.num_envs        = int(args.nenvs)
+    config.update_freq     = int(args.update_freq)
     config.lr              = args.lr
     config.use_lr_schedule = args.anneal_lr
     config.grad_norm_max   = args.max_grad_norm
@@ -310,9 +310,9 @@ if __name__=='__main__':
     config.adam_eps = args.adam_eps
 
     #memory
-    config.exp_replay_size        = args.replay_size
-    config.batch_size             = args.batch_size
-    config.target_net_update_freq = args.tnet_update
+    config.exp_replay_size        = int(args.replay_size)
+    config.batch_size             = int(args.batch_size)
+    config.target_net_update_freq = int(args.tnet_update)
 
     #epsilon variables
     config.epsilon_start = args.eps_start
@@ -320,7 +320,7 @@ if __name__=='__main__':
     config.epsilon_decay = args.eps_decay
 
     # Multi-step returns
-    config.N_steps = args.n_steps
+    config.N_steps = int(args.n_steps)
 
     # Double DQN
     config.double_dqn = args.double_dqn
@@ -350,7 +350,7 @@ if __name__=='__main__':
 
     #Recurrent control
     config.policy_gradient_recurrent_policy = args.recurrent_policy_gradient
-    config.gru_size                         = args.gru_size
+    config.gru_size                         = int(args.gru_size)
 
     # A2C Controls
     config.entropy_loss_weight = args.entropy_coef
@@ -361,8 +361,8 @@ if __name__=='__main__':
     config.gae_tau = args.gae_tau
 
     # PPO Controls
-    config.ppo_epoch       = args.ppo_epoch
-    config.ppo_mini_batch  = args.ppo_mini_batch
+    config.ppo_epoch       = int(args.ppo_epoch)
+    config.ppo_mini_batch  = int(args.ppo_mini_batch)
     config.ppo_clip_param  = args.ppo_clip_param
     config.use_ppo_vf_clip = args.disable_ppo_clip_value
     config.anneal_ppo_clip = args.disable_ppo_clip_schedule

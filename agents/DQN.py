@@ -104,7 +104,6 @@ class Agent(BaseAgent):
             next_state = None if terminal >= 1 else next_state
             self.memory.push((state, action, reward, next_state))
 
-    # NOTE: Probably broken with priority replay
     def prep_minibatch(self, tstep):
         # random transition batch is taken from experience replay memory
         data, indices, weights = self.memory.sample(self.config.batch_size, tstep)
