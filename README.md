@@ -132,7 +132,7 @@ python train.py --algo ppo --print-threshold 10 --save-threshold 100 --max-tstep
 
 # Acknowledgements: 
 * Credit to [@higgsfield](https://github.com/higgsfield) for inspiration for the structure of the entire notebook. Check out this tutorial too!
-* Credit to [@baselines](https://github.com/openai/baselines) for the original environment wrappers, experience replay code, prioritized replay code, Segment Tree implenation,  Modifications were made.
+* Credit to [@baselines](https://github.com/openai/baselines) for the original environment wrappers, experience replay code, prioritized replay code,  and Segment Tree implenation. Modifications were made.
 * Credit to [@apaszke](https://github.com/apaszke) for the code to mask 'None' next states used in all DQN variants; this was originally viewed in the pytorch tutorial for DQNs.
 * Credit to [@Kaixhin](https://github.com/Kaixhin) for factorized Noisy Linear Layer implementation and the projection_distribution function found in Categorical-DQN implementations. Modifications were made.
 * Credit to [@ikostrikov](https://github.com/ikostrikov/pytorch-a2c-ppo-acktr) for A2C, GAE, PPO and the plotting code implementation used in the ipynb notebooks; my 'implentations' here would be better named as adaptions of the original code.
