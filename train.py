@@ -1,5 +1,5 @@
 
-# TODO: adjust hyperparameters for priority replay
+# TODO: add arg to control type of noise in noisy nets
 # TODO: efficiency for priority replay functions
 # TODO: Add param to select device
 # TODO: fix computation graph for recurrent a2c
