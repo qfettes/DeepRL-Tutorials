@@ -127,7 +127,7 @@ parser.add_argument('--dueling-dqn', action='store_true', default=False,
 					help='Use dueling architecture with dqn')
 
 # Noisy Nets
-parser.add_argument('--noisy-sigma', action='store_true', default=False,
+parser.add_argument('--noisy-nets', action='store_true', default=False,
 					help='Use noisy networks for exploration (all algorithms)')
 parser.add_argument('--noisy-sigma', type=float, default=0.5,
 					help='Initial sigma value for noisy networks (default: 0.5)')
