@@ -127,6 +127,10 @@ parser.add_argument('--dueling-dqn', action='store_true', default=False,
 					help='Use dueling architecture with dqn')
 
 # Noisy Nets
+parser.add_argument('--noisy-sigma', action='store_true', default=False,
+					help='Use noisy networks for exploration (all algorithms)')
+parser.add_argument('--noisy-sigma', type=float, default=0.5,
+					help='Initial sigma value for noisy networks (default: 0.5)')
 
 # Categorical DQN
 
@@ -335,9 +339,10 @@ if __name__=='__main__':
     config.dueling_dqn = args.dueling_dqn
 
     # Noisy Nets
-    # config.sigma_init = 0.5
+    config.noisy_nets = args.noisy_nets
+    config.sigma_init = args.noisy_sigma
 
-    #Categorical Params
+    # Categorical Params
     # config.atoms = 51
     # config.v_max = 10
     # config.v_min = -10

@@ -24,34 +24,58 @@ The intent of these IPython Notebooks are mostly to help me practice and underst
 13. High-Dimensional Continuous Control Using Generalized Advantage Estimation [[Publication]](https://arxiv.org/abs/1506.02438)[[code]](https://github.com/qfettes/DeepRL-Tutorials/blob/master/13.GAE.ipynb)
 14. Proximal Policy Optimization Algorithms [[Publication]](https://arxiv.org/abs/1707.06347)[[code]](https://github.com/qfettes/DeepRL-Tutorials/blob/master/14.PPO.ipynb)
 
+## Training without Ipython Notebook
+Below is a list of commands to train all algorithms without the use of Ipython notebooks.
+
 ### DQN (Quick Verification):
+```
 python train.py --env-name PongNoFrameskip-v4 --stack-frames 1 --eps-end 0.01 --eps-decay 30000 --tnet-update 1000 --replay-size 100000 --learn-start 10000 --max-tsteps 1000000 --update-freq 1 --adam-eps 1.0e-8
+```
 
 ### DQN
+```
 python train.py
+```
 
 ### N-Step DQN
+```
 python train.py --n-steps 3
+```
 
 ### Double DQN
+```
 python train.py --double-dqn
+```
 
 ### Prioritized Replay
-<!-- Need to fix up the hyperparameters to make sure they are correct here -->
+```
 python train.py --double-dqn --priority-replay
+```
 
-<!-- ### Dueling DQN
-NOTE: fix these params more
-python train.py --double-dqn --priority-replay --dueling-dqn -->
+### Dueling DQN
+```
+python train.py --double-dqn --priority-replay --dueling-dqn --max-grad-norm 10.0
+```
+
+### Noisy Networks
+```
+python train.py --double-dqn --priority-replay --dueling-dqn --max-grad-norm 10.0 --noisy-nets
+```
 
 ### A2C:
+```
 python train.py --algo a2c --print-threshold 100 --max-tsteps 10000000 --learn-start 0 --nenvs 16 --update-freq 5 --lr 0.0007 --anneal-lr --max-grad-norm 0.5 
+```
 
 ### Recurrent A2C:
+```
 python train.py --algo a2c --print-threshold 25 --save-threshold 250 --max-tsteps 10000000 --learn-start 0 --nenvs 16 --update-freq 20 --lr 0.0007 --anneal-lr --max-grad-norm 0.5 --recurrent-policy-gradient
+```
 
 ### PPO:
+```
 python train.py --algo ppo --print-threshold 10 --save-threshold 100 --max-tsteps 10000000 --learn-start 0 --nenvs 8 --update-freq 128 --lr 2.5e-4 --anneal-lr --max-grad-norm 0.5 --adam-eps 1.0e-5 --value-loss-weight 1.0 --enable-gae --disable-ppo-clip-value
+```
     
 ## Requirements: 
 
@@ -95,6 +119,16 @@ python train.py --algo ppo --print-threshold 10 --save-threshold 100 --max-tstep
         * Original: Evaluation Epsilon is 0.001
     * No shared bias in Output layer
         * Original: shared bias between every node in output layer
+* Prioritized Replay
+    * All Double DQN Differences Apply Here
+* Dueling DQN
+    * All Prioritized Replay differences apply here
+    * Higher Learning rate?
+        * Original: Unknown, but the paper notes they use a lower learning rate than Double DQN
+    * No gradient rescaling for convolutional layers
+        * Original: Rescales gradients entering final convolutional layer by 1/sqrt(2)
+* Noisy Networks for Exploration
+    * All Prioritized Replay differences apply here
 
 # Acknowledgements: 
 * Credit to [@baselines](https://github.com/openai/baselines) for the environment wrappers and inspiration for the prioritized replay code.

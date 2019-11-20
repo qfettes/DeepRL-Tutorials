@@ -130,13 +130,13 @@ class Agent(BaseAgent):
         batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights = batch_vars
 
         #estimate
-        # self.model.sample_noise()
+        self.model.sample_noise()
         current_q_values = self.model(batch_state).gather(1, batch_action)
         
         #target
         with torch.no_grad():
             next_q_values = torch.zeros(self.config.batch_size, device=self.config.device, dtype=torch.float).unsqueeze(dim=1)
-            # self.target_model.sample_noise()
+            self.target_model.sample_noise()
             if not empty_next_state_values:
                 if self.config.double_dqn:
                     max_next_actions = torch.argmax(self.model(non_final_next_states), dim=1).view(-1, 1)
@@ -216,7 +216,7 @@ class Agent(BaseAgent):
                 X = torch.from_numpy(s).to(self.config.device).to(torch.float).view((-1,)+self.num_feats)
                 X = X if self.config.s_norm is None else X/self.config.s_norm
 
-                # self.model.sample_noise()
+                self.model.sample_noise()
                 return torch.argmax(self.model(X), dim=1).cpu().numpy()
             else:
                 return np.random.randint(0, self.num_actions, (s.shape[0]))
