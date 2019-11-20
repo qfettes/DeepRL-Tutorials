@@ -28,18 +28,22 @@ class NoisyLinear(nn.Module):
         self.bias_sigma.data.fill_(self.std_init / math.sqrt(self.out_features))
 
     def _scale_noise(self, size):
-        x = torch.randn(size)
+        x = torch.randn(size, device=self.weight_sigma.device)
         return x.sign().mul_(x.abs().sqrt_())
 
     def sample_noise(self):
         if self.factorised_noise:
             epsilon_in = self._scale_noise(self.in_features)
             epsilon_out = self._scale_noise(self.out_features)
-            self.weight_epsilon.copy_(epsilon_out.ger(epsilon_in))
-            self.bias_epsilon.copy_(epsilon_out)
+            # self.weight_epsilon.copy_(epsilon_out.ger(epsilon_in))
+            # self.bias_epsilon.copy_(epsilon_out)
+            self.weight_epsilon = epsilon_out.ger(epsilon_in)
+            self.bias_epsilon = epsilon_out
         else:
-            self.weight_epsilon.copy_(torch.randn((self.out_features, self.in_features)))
-            self.bias_epsilon.copy_(torch.randn(self.out_features))
+            # self.weight_epsilon.copy_(torch.randn((self.out_features, self.in_features)))
+            # self.bias_epsilon.copy_(torch.randn(self.out_features))
+            self.weight_epsilon = epsilon_out.ger(epsilon_in)
+            self.bias_epsilon = epsilon_out
 
     def forward(self, inp):
         if self.training:
