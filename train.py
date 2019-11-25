@@ -31,7 +31,7 @@ from IPython.display import clear_output
 parser = argparse.ArgumentParser(description='RL')
 # Meta Info
 parser.add_argument('--algo', default='dqn',
-					help='algorithm to use: dqn | a2c | ppo')
+					help='algorithm to use: dqn | c51 | a2c | ppo')
 parser.add_argument('--env-name', default='BreakoutNoFrameskip-v4',
 					help='environment to train on (default: BreakoutNoFrameskip-v4)')
 parser.add_argument('--seed', type=int, default=None, help='random seed. \
@@ -133,6 +133,12 @@ parser.add_argument('--noisy-sigma', type=float, default=0.5,
 					help='Initial sigma value for noisy networks (default: 0.5)')
 
 # Categorical DQN
+parser.add_argument('--c51-atoms', type=int, default=51,
+					help='Number of Atoms in categorical DQN (default: 51)')
+parser.add_argument('--c51-vmin', type=float, default=-10.0,
+					help='Minimum v in C51 (default: -10.0)')
+parser.add_argument('--c51-vmax', type=int, default=10.0,
+					help='Minimum v in C51 (default: 10.0)')
 
 # Quantile DQN
 
@@ -270,6 +276,8 @@ if __name__=='__main__':
     #Import Correct Agent
     if args.algo == 'dqn':
         from agents.DQN import Agent
+    elif args.algo == 'c51':
+        from agents.Categorical_DQN import Agent
     elif args.algo == 'a2c':
         from agents.A2C import Agent
     elif args.algo == 'ppo':
@@ -343,9 +351,9 @@ if __name__=='__main__':
     config.sigma_init = args.noisy_sigma
 
     # Categorical Params
-    # config.atoms = 51
-    # config.v_max = 10
-    # config.v_min = -10
+    config.c51_atoms = args.c51_atoms
+    config.c51_vmax  = args.c51_vmax
+    config.c51_vmin  = args.c51_vmin
 
     # Quantile Regression Parameters
     # config.quantiles = 51

@@ -68,9 +68,9 @@ class Config(object):
         self.sigma_init = 0.5
 
         #Categorical Params
-        self.atoms = 51
-        self.v_max = 10
-        self.v_min = -10
+        self.c51_atoms = 51
+        self.c51_vmax = 10
+        self.c51_vmin = -10
 
         # Quantile Regression Parameters
         self.quantiles = 51

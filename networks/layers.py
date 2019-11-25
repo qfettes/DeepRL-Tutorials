@@ -13,10 +13,10 @@ class NoisyLinear(nn.Module):
         self.factorised_noise = factorised_noise
         self.weight_mu = nn.Parameter(torch.empty(out_features, in_features))
         self.weight_sigma = nn.Parameter(torch.empty(out_features, in_features))
-        self.register_buffer('weight_epsilon', torch.empty(out_features, in_features))
+        # self.register_buffer('weight_epsilon', torch.empty(out_features, in_features))
         self.bias_mu = nn.Parameter(torch.empty(out_features))
         self.bias_sigma = nn.Parameter(torch.empty(out_features))
-        self.register_buffer('bias_epsilon', torch.empty(out_features))
+        # self.register_buffer('bias_epsilon', torch.empty(out_features))
         self.reset_parameters()
         self.sample_noise()
 
@@ -42,8 +42,8 @@ class NoisyLinear(nn.Module):
         else:
             # self.weight_epsilon.copy_(torch.randn((self.out_features, self.in_features)))
             # self.bias_epsilon.copy_(torch.randn(self.out_features))
-            self.weight_epsilon = epsilon_out.ger(epsilon_in)
-            self.bias_epsilon = epsilon_out
+            self.weight_epsilon = torch.randn((self.out_features, self.in_features), device=self.weight_sigma.device)
+            self.bias_epsilon = torch.randn(self.out_features, device=self.weight_sigma.device)
 
     def forward(self, inp):
         if self.training:
