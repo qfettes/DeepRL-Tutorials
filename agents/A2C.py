@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from agents.BaseAgent import BaseAgent
-from networks.networks import ActorCritic, ContinuousActorCritic
+from networks.networks import ActorCritic
 from utils.RolloutStorage import RolloutStorage
 
 from collections import deque
@@ -57,13 +57,7 @@ class Agent(BaseAgent):
 
 
     def declare_networks(self):
-        if self.envs.action_space.__class__.__name__ == 'Discrete':
-            self.model = ActorCritic(self.num_feats, self.action_space, conv_out=self.config.body_out, use_gru=self.config.policy_gradient_recurrent_policy, gru_size=self.config.gru_size, noisy_nets=self.config.noisy_nets, sigma_init=self.config.sigma_init)
-        elif self.envs.action_space.__class__.__name__ == 'Box':
-            self.model = ContinuousActorCritic(self.num_feats, self.action_space, body_out=self.config.body_out, use_gru=self.config.policy_gradient_recurrent_policy, gru_size=self.config.gru_size, noisy_nets=self.config.noisy_nets, sigma_init=self.config.sigma_init)
-        else:
-            print('[ERROR] Unsupported Action Space. Abort')
-            exit()
+        self.model = ActorCritic(self.num_feats, self.action_space, body_out=self.config.body_out, use_gru=self.config.policy_gradient_recurrent_policy, gru_size=self.config.gru_size, noisy_nets=self.config.noisy_nets, sigma_init=self.config.sigma_init)
         
 
     def training_priors(self):

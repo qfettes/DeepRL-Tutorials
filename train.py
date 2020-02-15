@@ -28,7 +28,7 @@ from utils.hyperparameters import Config
 from utils.plot import plot_reward
 
 from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
-from baselines.common.vec_env.shmem_vec_env import ShmemVecEnv
+from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
 
 from IPython.display import clear_output
 
@@ -82,9 +82,8 @@ parser.add_argument('--max-grad-norm', type=float, default= 40.0,
 					help='max norm of gradients (default: 40.0)')
 parser.add_argument('--gamma', type=float, default=0.99,
 					help='discount factor for rewards (default: 0.99)')
-parser.add_argument('--body-out', type=int, default=64,
-					help='Number of output (channels | nodes) for convolutional\
-                        and FC NN bodies, respectively (default: 64)')
+parser.add_argument('--body-out', type=int, default=512,
+					help='Number of output (channels | nodes) for NN bodies, respectively (default: 512)')
 
 # RMSProp Parameters
 parser.add_argument('--rms-alpha', type=float, default=0.99,
@@ -209,7 +208,7 @@ def train(config, Agent, ipynb=False):
             torch.cuda.manual_seed(config.seed)
 
     envs = [make_env_atari(config.env_id, config.seed, i, log_dir, stack_frames=config.stack_frames, adaptive_repeat=config.adaptive_repeat, sticky_actions=config.sticky_actions, clip_rewards=True) for i in range(config.num_envs)]
-    envs = DummyVecEnv(envs) if len(envs) == 1 else ShmemVecEnv(envs, context='fork')
+    envs = DummyVecEnv(envs) if len(envs) == 1 else SubprocVecEnv(envs)
 
     agent = Agent(env=envs, config=config, log_dir=base_dir, tb_writer=writer)
 

@@ -28,7 +28,7 @@ from utils.hyperparameters import Config
 from utils.plot import plot_reward
 
 from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
-from baselines.common.vec_env.shmem_vec_env import ShmemVecEnv
+from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
 
 from IPython.display import clear_output
 

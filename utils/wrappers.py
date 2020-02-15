@@ -16,7 +16,7 @@ from baselines.common.atari_wrappers import EpisodicLifeEnv, FireResetEnv, WarpF
 
 from baselines.common.vec_env.vec_normalize import VecNormalize as VecNormalize_
 from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
-from baselines.common.vec_env.shmem_vec_env import ShmemVecEnv
+from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
 from baselines.common.vec_env import VecEnvWrapper
 
 class MaxAndSkipEnv_custom(gym.Wrapper):
@@ -125,7 +125,7 @@ def make_env_atari(env_id, seed, rank, log_dir, stack_frames=4, adaptive_repeat=
 
 def make_mujoco(env_id, seed, log_dir, num_envs, gamma, device, early_resets, frame_stack=None):
     envs = [make_env_continuous(env_id, seed, i, log_dir) for i in range(num_envs)]
-    envs = DummyVecEnv(envs) if len(envs) == 1 else ShmemVecEnv(envs, context='fork')
+    envs = DummyVecEnv(envs) if len(envs) == 1 else SubprocVecEnv(envs)
 
     if len(envs.observation_space.shape) == 1:
         if gamma is None:
