@@ -3,6 +3,7 @@
 import os
 import numpy as np
 from collections import deque
+import torch
 
 import gym
 from gym import spaces
@@ -12,6 +13,11 @@ from gym.spaces.box import Box
 from baselines import bench
 from baselines.common.atari_wrappers import NoopResetEnv, TimeLimit, make_atari, wrap_deepmind
 from baselines.common.atari_wrappers import EpisodicLifeEnv, FireResetEnv, WarpFrame, ScaledFloatFrame, ClipRewardEnv, FrameStack
+
+from baselines.common.vec_env.vec_normalize import VecNormalize as VecNormalize_
+from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
+from baselines.common.vec_env.shmem_vec_env import ShmemVecEnv
+from baselines.common.vec_env import VecEnvWrapper
 
 class MaxAndSkipEnv_custom(gym.Wrapper):
     def __init__(self, env, skip=[4], sticky_actions=0.0):
@@ -109,7 +115,7 @@ def make_env_atari(env_id, seed, rank, log_dir, stack_frames=4, adaptive_repeat=
         if log_dir is not None:
             env = bench.Monitor(env, os.path.join(log_dir, str(rank)))
 
-        env = wrap_deepmind_custom(env, episode_life=True, clip_rewards=clip_rewards, frame_stack=stack_frames, scale=False)
+        env = wrap_deepmind_custom(env, episode_life=True, clip_rewards=clip_rewards, frame_stack=stack_frames, scale=True)
         #env = atari_stack_and_repeat(env, stack_frames, adaptive_repeat, sticky_actions)
         env = WrapPyTorch(env)
 
@@ -117,57 +123,145 @@ def make_env_atari(env_id, seed, rank, log_dir, stack_frames=4, adaptive_repeat=
     return _thunk
 
 
-# class atari_stack_and_repeat(gym.Wrapper):
-#     def __init__(self, env, k, adaptive_repeat, sticky):
-#         """Stack k last frames.
+def make_mujoco(env_id, seed, log_dir, num_envs, gamma, device, early_resets, frame_stack=None):
+    envs = [make_env_continuous(env_id, seed, i, log_dir) for i in range(num_envs)]
+    envs = DummyVecEnv(envs) if len(envs) == 1 else ShmemVecEnv(envs, context='fork')
 
-#         Returns lazy array, which is much more memory efficient.
+    if len(envs.observation_space.shape) == 1:
+        if gamma is None:
+            envs = VecNormalize(envs, ret=False)
+        else:
+            envs = VecNormalize(envs, gamma=gamma)
 
-#         See Also
-#         --------
-#         baselines.common.atari_wrappers.LazyFrames
-#         """
-#         gym.Wrapper.__init__(self, env)
-#         self.k = k
-#         self.adaptive_repeat = adaptive_repeat
-#         self.num_actions = env.action_space.n
-#         self.frames = deque([], maxlen=k)
-#         self.sticky = sticky
-#         self.prev_action = None
-#         shp = env.observation_space.shape
-#         self.observation_space = spaces.Box(low=0, high=255, shape=(shp[0], shp[1], shp[2] * k), dtype=np.uint8)
+    # envs = VecPyTorch(envs, device)
 
-#     def reset(self): #pylint: disable=method-hidden
-#         ob = self.env.reset()
-#         for _ in range(self.k):
-#             self.frames.append(ob)
-#         return self._get_ob()
+    # if frame_stack is not None:
+    #     envs = VecPyTorchFrameStack(envs, frame_stack, device)
+    # elif len(envs.observation_space.shape) == 3:
+    #     envs = VecPyTorchFrameStack(envs, 4, device)
 
-#     def step(self, a): #pylint: disable=method-hidden
-#         repeat_len = a // self.num_actions
-#         action = a % self.num_actions
+    return envs
 
-#         is_sticky = np.random.rand()
-#         if is_sticky >= self.sticky or self.prev_action is None:
-#             self.prev_action = action
-#         ob, reward, done, info = self.env.step(self.prev_action)
+def make_env_continuous(env_id, seed, rank, log_dir):
+    def _thunk():        
+        env = gym.make(env_id)
         
-#         self.frames.append(ob)
-#         total_reward = reward
-        
-#         for i in range(1, self.adaptive_repeat[repeat_len]):
-#             if not done:
-#                 is_sticky = np.random.rand()
-#                 if is_sticky >= self.sticky or self.prev_action is None:
-#                     self.prev_action = action
-#                 ob, reward, done, info = self.env.step(self.prev_action)
+        if seed:
+            env.seed(seed + rank)
+        else:
+            env.seed(np.random.randint(10000000000))
 
-#                 total_reward += reward
-#                 self.frames.append(ob)
-#             else:
-#                 self.frames.append(ob)
-#         return self._get_ob(), total_reward, done, info
+        if str(env.__class__.__name__).find('TimeLimit') >= 0:
+            env = TimeLimitMask(env)
 
-#     def _get_ob(self):
-#         assert len(self.frames) == self.k
-#         return LazyFrames(list(self.frames))
+        if log_dir is not None:
+            env = bench.Monitor(env, os.path.join(log_dir, str(rank)))
+
+        return env
+    return _thunk
+
+# https://github.com/ikostrikov/pytorch-a2c-ppo-acktr-gail
+class VecNormalize(VecNormalize_):
+    def __init__(self, *args, **kwargs):
+        super(VecNormalize, self).__init__(*args, **kwargs)
+        self.training = True
+
+    def _obfilt(self, obs, update=True):
+        if self.ob_rms:
+            if self.training and update:
+                self.ob_rms.update(obs)
+            obs = np.clip((obs - self.ob_rms.mean) /
+                          np.sqrt(self.ob_rms.var + self.epsilon),
+                          -self.clipob, self.clipob)
+            return obs
+        else:
+            return obs
+
+    def train(self):
+        self.training = True
+
+    def eval(self):
+        self.training = False
+
+# https://github.com/ikostrikov/pytorch-a2c-ppo-acktr-gail
+# Checks whether done was caused my timit limits or not
+class TimeLimitMask(gym.Wrapper):
+    def step(self, action):
+        obs, rew, done, info = self.env.step(action)
+        if done and self.env._max_episode_steps == self.env._elapsed_steps:
+            info['bad_transition'] = True
+
+        return obs, rew, done, info
+
+    def reset(self, **kwargs):
+        return self.env.reset(**kwargs)
+
+# # Adapted from: https://github.com/ikostrikov/pytorch-a2c-ppo-acktr-gail
+# class VecPyTorch(VecEnvWrapper):
+#     def __init__(self, venv, device):
+#         """Return only every `skip`-th frame"""
+#         super(VecPyTorch, self).__init__(venv)
+#         self.device = device
+#         # TODO: Fix data types
+
+#     def reset(self):
+#         obs = self.venv.reset()
+#         obs = torch.from_numpy(obs).float().to(self.device)
+#         return obs
+
+#     def step_async(self, actions):
+#         if isinstance(actions, torch.LongTensor):
+#             # Squeeze the dimension for discrete actions
+#             actions = actions.squeeze(1)
+#         actions = actions.cpu().numpy()
+#         self.venv.step_async(actions)
+
+#     def step_wait(self):
+#         obs, reward, done, info = self.venv.step_wait()
+#         obs = torch.from_numpy(obs).float().to(self.device)
+#         reward = torch.from_numpy(reward).unsqueeze(dim=1).float()
+#         done = torch.from_numpy(done).unsqueeze(dim=1).to(torch.bool)
+#         return obs, reward, done, info
+
+# # https://github.com/ikostrikov/pytorch-a2c-ppo-acktr-gail
+# class VecPyTorchFrameStack(VecEnvWrapper):
+#     def __init__(self, venv, nstack, device=None):
+#         self.venv = venv
+#         self.nstack = nstack
+
+#         wos = venv.observation_space  # wrapped ob space
+#         self.shape_dim0 = wos.shape[0]
+
+#         low = np.repeat(wos.low, self.nstack, axis=0)
+#         high = np.repeat(wos.high, self.nstack, axis=0)
+
+#         if device is None:
+#             device = torch.device('cpu')
+#         self.stacked_obs = torch.zeros((venv.num_envs, ) +
+#                                        low.shape).to(device)
+
+#         observation_space = gym.spaces.Box(
+#             low=low, high=high, dtype=venv.observation_space.dtype)
+#         VecEnvWrapper.__init__(self, venv, observation_space=observation_space)
+
+#     def step_wait(self):
+#         obs, rews, news, infos = self.venv.step_wait()
+#         self.stacked_obs[:, :-self.shape_dim0] = \
+#             self.stacked_obs[:, self.shape_dim0:]
+#         for (i, new) in enumerate(news):
+#             if new:
+#                 self.stacked_obs[i] = 0
+#         self.stacked_obs[:, -self.shape_dim0:] = obs
+#         return self.stacked_obs, rews, news, infos
+
+#     def reset(self):
+#         obs = self.venv.reset()
+#         if torch.backends.cudnn.deterministic:
+#             self.stacked_obs = torch.zeros(self.stacked_obs.shape)
+#         else:
+#             self.stacked_obs.zero_()
+#         self.stacked_obs[:, -self.shape_dim0:] = obs
+#         return self.stacked_obs
+
+#     def close(self):
+#         self.venv.close()

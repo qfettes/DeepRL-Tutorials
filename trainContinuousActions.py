@@ -23,7 +23,7 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from utils import save_config, update_linear_schedule, create_directory
-from utils.wrappers import make_env_atari
+from utils.wrappers import make_mujoco
 from utils.hyperparameters import Config
 from utils.plot import plot_reward
 
@@ -34,10 +34,10 @@ from IPython.display import clear_output
 
 parser = argparse.ArgumentParser(description='RL')
 # Meta Info
-parser.add_argument('--algo', default='dqn',
-					help='algorithm to use: dqn | c51 | a2c | ppo')
-parser.add_argument('--env-name', default='BreakoutNoFrameskip-v4',
-					help='environment to train on (default: BreakoutNoFrameskip-v4)')
+parser.add_argument('--algo', default='a2c',
+					help='algorithm to use: a2c | ppo')
+parser.add_argument('--env-name', default='Reacher-v2',
+					help='environment to train on (default: Reacher-v2)')
 parser.add_argument('--seed', type=int, default=None, help='random seed. \
                         Note if seed is None then it will be randomly \
                         generated (default: None)')
@@ -53,11 +53,8 @@ parser.add_argument('--render', action='store_true', default=False,
 # Preprocessing
 parser.add_argument('--stack-frames', type=int, default=4,
 					help='Number of frames to stack (default: 4)')
-parser.add_argument('--adaptive-repeat', nargs='+', type=int, default=[4],
-                    help='Possible action repeat values (default: [4])')
-parser.add_argument('--state-norm', type=float, default=255.0,
-					help='Normalization constant for states. Set to None if normalization \
-                        is handled elsewhere (wrappers) or unneeded (default: 255.0)')
+# parser.add_argument('--adaptive-repeat', nargs='+', type=int, default=[4],
+#                     help='Possible action repeat values (default: [4])')
 parser.add_argument('--sticky-actions', type=float, default=0.,
                     help='Sticky action probability. I.e. the probability that \
                         input is ignored and the previous action is repeated \
@@ -84,6 +81,7 @@ parser.add_argument('--body-out', type=int, default=64,
 					help='Number of output (channels | nodes) for convolutional\
                         and FC NN bodies, respectively (default: 64)')
 
+
 # RMSProp Parameters
 parser.add_argument('--rms-alpha', type=float, default=0.99,
 					help='alpha param of rmsprop, used in a2c (default: 0.99)')
@@ -94,44 +92,44 @@ parser.add_argument('--rms-eps', type=float, default=1e-5,
 parser.add_argument('--adam-eps', type=float, default=1e-4,
 					help='epsilon param of adam (default: 1e-4)')
 
-# Replay Memory
-parser.add_argument('--replay-size', type=int, default=1e6,
-					help='!!!WATCH YOUR RAM USAGE!!! Size of replay buffer (default: 1000000)')
-parser.add_argument('--batch-size', type=int, default=32,
-					help='Size of minibatches drawn from replay buffer (default: 32)')
-parser.add_argument('--tnet-update', type=int, default=4e4,
-					help='Num Steps between target net updates (default: 40000)')
+# # Replay Memory
+# parser.add_argument('--replay-size', type=int, default=1e6,
+# 					help='!!!WATCH YOUR RAM USAGE!!! Size of replay buffer (default: 1000000)')
+# parser.add_argument('--batch-size', type=int, default=32,
+# 					help='Size of minibatches drawn from replay buffer (default: 32)')
+# parser.add_argument('--tnet-update', type=int, default=4e4,
+# 					help='Num Steps between target net updates (default: 40000)')
     
-# Epsilon Variables
-parser.add_argument('--eps-start', type=float, default=1.0,
-					help='starting value of epsilon (default: 1.0)')
-parser.add_argument('--eps-end', nargs='+', type=float, default=[0.1, 0.01],
-					help='ending value of epsilon for each part of the peicewise function (default: [0.1, 0.01])')
-parser.add_argument('--eps-decay', nargs='+', type=float, default=[0.05, 0.5],
-					help='Percent of training at which each eps-end value will be reached via linear decay\n. Choose \
-                        a single value > 1.0 to switch to an exponential decay schedule (default: [0.05, 0.5])')
+# # Epsilon Variables
+# parser.add_argument('--eps-start', type=float, default=1.0,
+# 					help='starting value of epsilon (default: 1.0)')
+# parser.add_argument('--eps-end', nargs='+', type=float, default=[0.1, 0.01],
+# 					help='ending value of epsilon for each part of the peicewise function (default: [0.1, 0.01])')
+# parser.add_argument('--eps-decay', nargs='+', type=float, default=[0.05, 0.5],
+# 					help='Percent of training at which each eps-end value will be reached via linear decay\n. Choose \
+#                         a single value > 1.0 to switch to an exponential decay schedule (default: [0.05, 0.5])')
 
-# Nstep
-parser.add_argument('--n-steps', type=int, default=1,
-					help='Value of N used in N-Step Q-Learning (default: 1)')
+# # Nstep
+# parser.add_argument('--n-steps', type=int, default=1,
+# 					help='Value of N used in N-Step Q-Learning (default: 1)')
 
-# Double DQN
-parser.add_argument('--double-dqn', action='store_true', default=False,
-					help='Use double learning with dqn')
+# # Double DQN
+# parser.add_argument('--double-dqn', action='store_true', default=False,
+# 					help='Use double learning with dqn')
 
-# Priority Replay
-parser.add_argument('--priority-replay', action='store_true', default=False,
-					help='Use prioritized replay with dqn')
-parser.add_argument('--priority-alpha', type=float, default=0.6,
-					help='Alpha value of prioritized replay (default: 0.6)')
-parser.add_argument('--priority-beta-start', type=float, default=0.4,
-					help='starting value of beta in prioritized replay (default: 0.4)')
-parser.add_argument('--priority-beta-steps', type=int, default=2e7,
-					help='steps over which to anneal priority beta to 1 (default: 2e7)')
+# # Priority Replay
+# parser.add_argument('--priority-replay', action='store_true', default=False,
+# 					help='Use prioritized replay with dqn')
+# parser.add_argument('--priority-alpha', type=float, default=0.6,
+# 					help='Alpha value of prioritized replay (default: 0.6)')
+# parser.add_argument('--priority-beta-start', type=float, default=0.4,
+# 					help='starting value of beta in prioritized replay (default: 0.4)')
+# parser.add_argument('--priority-beta-steps', type=int, default=2e7,
+# 					help='steps over which to anneal priority beta to 1 (default: 2e7)')
 
-# Dueling DQN
-parser.add_argument('--dueling-dqn', action='store_true', default=False,
-					help='Use dueling architecture with dqn')
+# # Dueling DQN
+# parser.add_argument('--dueling-dqn', action='store_true', default=False,
+# 					help='Use dueling architecture with dqn')
 
 # Noisy Nets
 parser.add_argument('--noisy-nets', action='store_true', default=False,
@@ -139,17 +137,17 @@ parser.add_argument('--noisy-nets', action='store_true', default=False,
 parser.add_argument('--noisy-sigma', type=float, default=0.5,
 					help='Initial sigma value for noisy networks (default: 0.5)')
 
-# Categorical DQN
-parser.add_argument('--c51-atoms', type=int, default=51,
-					help='Number of Atoms in categorical DQN (default: 51)')
-parser.add_argument('--c51-vmin', type=float, default=-10.0,
-					help='Minimum v in C51 (default: -10.0)')
-parser.add_argument('--c51-vmax', type=int, default=10.0,
-					help='Minimum v in C51 (default: 10.0)')
+# # Categorical DQN
+# parser.add_argument('--c51-atoms', type=int, default=51,
+# 					help='Number of Atoms in categorical DQN (default: 51)')
+# parser.add_argument('--c51-vmin', type=float, default=-10.0,
+# 					help='Minimum v in C51 (default: -10.0)')
+# parser.add_argument('--c51-vmax', type=int, default=10.0,
+# 					help='Minimum v in C51 (default: 10.0)')
 
-# Quantile DQN
+# # Quantile DQN
 
-# DRQN 
+# # DRQN 
 
 # Recurrent Policy Gradient
 parser.add_argument('--recurrent-policy-gradient', action='store_true', default=False,
@@ -203,11 +201,10 @@ def train(config, Agent, ipynb=False):
         random.seed(config.seed)
         np.random.seed(config.seed)
         torch.manual_seed(config.seed)
-        if torch.cuda.is_available():
-            torch.cuda.manual_seed(config.seed)
+        torch.cuda.manual_seed_all(config.seed)
 
-    envs = [make_env_atari(config.env_id, config.seed, i, log_dir, stack_frames=config.stack_frames, adaptive_repeat=config.adaptive_repeat, sticky_actions=config.sticky_actions, clip_rewards=True) for i in range(config.num_envs)]
-    envs = DummyVecEnv(envs) if len(envs) == 1 else ShmemVecEnv(envs, context='fork')
+    # envs = [make_env_atari(config.env_id, config.seed, i, log_dir, stack_frames=config.stack_frames, adaptive_repeat=config.adaptive_repeat, sticky_actions=config.sticky_actions, clip_rewards=True) for i in range(config.num_envs)]
+    envs = make_mujoco(config.env_id, config.seed, log_dir, config.num_envs, config.gamma, config.device, early_resets=False, frame_stack=None)
 
     agent = Agent(env=envs, config=config, log_dir=base_dir, tb_writer=writer)
 
@@ -281,11 +278,7 @@ if __name__=='__main__':
     args = parser.parse_args()
 
     #Import Correct Agent
-    if args.algo == 'dqn':
-        from agents.DQN import Agent
-    elif args.algo == 'c51':
-        from agents.Categorical_DQN import Agent
-    elif args.algo == 'a2c':
+    if args.algo == 'a2c':
         from agents.A2C import Agent
     elif args.algo == 'ppo':
         from agents.PPO import Agent
@@ -307,7 +300,7 @@ if __name__=='__main__':
 
     # preprocessing
     config.stack_frames    = int(args.stack_frames)
-    config.adaptive_repeat = args.adaptive_repeat
+    # config.adaptive_repeat = args.adaptive_repeat
     config.sticky_actions  = args.sticky_actions
 
     # Learning Control Variables
@@ -328,45 +321,45 @@ if __name__=='__main__':
     #adam params
     config.adam_eps = args.adam_eps
 
-    #memory
-    config.exp_replay_size        = int(args.replay_size)
-    config.batch_size             = int(args.batch_size)
-    config.target_net_update_freq = int(args.tnet_update)
+    # #memory
+    # config.exp_replay_size        = int(args.replay_size)
+    # config.batch_size             = int(args.batch_size)
+    # config.target_net_update_freq = int(args.tnet_update)
 
-    #epsilon variables
-    config.epsilon_start = args.eps_start
-    config.epsilon_final = args.eps_end
-    config.epsilon_decay = args.eps_decay
+    # #epsilon variables
+    # config.epsilon_start = args.eps_start
+    # config.epsilon_final = args.eps_end
+    # config.epsilon_decay = args.eps_decay
 
-    # Multi-step returns
-    config.N_steps = int(args.n_steps)
+    # # Multi-step returns
+    # config.N_steps = int(args.n_steps)
 
-    # Double DQN
-    config.double_dqn = args.double_dqn
+    # # Double DQN
+    # config.double_dqn = args.double_dqn
 
-    # Priority Replay
-    config.priority_replay      = args.priority_replay
-    config.priority_alpha       = args.priority_alpha
-    config.priority_beta_start  = args.priority_beta_start
-    config.priority_beta_tsteps = args.priority_beta_steps
+    # # Priority Replay
+    # config.priority_replay      = args.priority_replay
+    # config.priority_alpha       = args.priority_alpha
+    # config.priority_beta_start  = args.priority_beta_start
+    # config.priority_beta_tsteps = args.priority_beta_steps
 
-    # Dueling DQN
-    config.dueling_dqn = args.dueling_dqn
+    # # Dueling DQN
+    # config.dueling_dqn = args.dueling_dqn
 
     # Noisy Nets
     config.noisy_nets = args.noisy_nets
     config.sigma_init = args.noisy_sigma
 
-    # Categorical Params
-    config.c51_atoms = args.c51_atoms
-    config.c51_vmin  = args.c51_vmin
-    config.c51_vmax  = args.c51_vmax
+    # # Categorical Params
+    # config.c51_atoms = args.c51_atoms
+    # config.c51_vmin  = args.c51_vmin
+    # config.c51_vmax  = args.c51_vmax
 
-    # Quantile Regression Parameters
-    # config.quantiles = 51
+    # # Quantile Regression Parameters
+    # # config.quantiles = 51
 
-    # DRQN Parameters
-    # config.drqn_sequence_length = 8
+    # # DRQN Parameters
+    # # config.drqn_sequence_length = 8
 
     #Recurrent control
     config.policy_gradient_recurrent_policy = args.recurrent_policy_gradient
