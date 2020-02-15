@@ -14,6 +14,7 @@ class Config(object):
         self.print_threshold = 100
         self.save_threshold = 1000
         self.render = False
+        self.correct_time_limits = False
 
         #preprocessing
         self.stack_frames = 4

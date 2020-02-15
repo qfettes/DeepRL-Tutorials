@@ -33,8 +33,7 @@ class Agent(BaseAgent):
 
         self.declare_networks()
 
-        # self.optimizer = optim.RMSprop(self.model.parameters(), lr=self.config.lr, alpha=self.config.rms_alpha, eps=self.config.rms_eps)   
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.config.lr)
+        self.optimizer = optim.RMSprop(self.model.parameters(), lr=self.config.lr, alpha=self.config.rms_alpha, eps=self.config.rms_eps)   
         
         #move to correct device
         self.model = self.model.to(self.config.device)
@@ -46,7 +45,7 @@ class Agent(BaseAgent):
 
         self.rollouts = RolloutStorage(self.config.update_freq , self.config.num_envs,
             self.num_feats, self.envs.action_space, self.model.state_size,
-            self.config.device, config.use_gae, config.gae_tau)
+            self.config.device, config.use_gae, config.gae_tau, config.correct_time_limits)
 
         self.value_losses = []
         self.entropy_losses = []

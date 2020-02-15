@@ -49,6 +49,8 @@ parser.add_argument('--save-threshold', type=int, default=2500,
 					help='save nn params every save-threshold timesteps (default: 1000)')
 parser.add_argument('--render', action='store_true', default=False,
                     help='Render the inference epsiode (default: False')
+parser.add_argument('--correct-time-limits', action='store_true', default=False,
+                    help='adds masking when time limit reached in envs with time limits (default: False')
 
 # Preprocessing
 parser.add_argument('--stack-frames', type=int, default=4,
@@ -297,6 +299,7 @@ if __name__=='__main__':
     config.print_threshold = int(args.print_threshold)
     config.save_threshold  = int(args.save_threshold)
     config.render          = args.render
+    config.correct_time_limits = args.correct_time_limits
 
     # preprocessing
     config.stack_frames    = int(args.stack_frames)
