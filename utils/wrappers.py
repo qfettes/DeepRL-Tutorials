@@ -103,6 +103,22 @@ class WrapPyTorch(gym.ObservationWrapper):
         return np.array(observation).transpose(2, 0, 1)
 
 
+def make_env_general(env_id, seed, log_dir, num_envs, gamma, stack_frames=4, adaptive_repeat=[4], sticky_actions=0.0, clip_rewards=True):
+    env = gym.make(env_id)
+
+    if env.action_space.__class__.__name__ == 'Discrete':
+        env.close()
+        return make_all_atari(env_id, seed, log_dir, num_envs, stack_frames=4, adaptive_repeat=[4], sticky_actions=0.0, clip_rewards=True)
+    else:
+        env.close()
+        return make_mujoco(env_id, seed, log_dir, num_envs, gamma)
+
+def make_all_atari(env_id, seed, log_dir, num_envs, stack_frames=4, adaptive_repeat=[4], sticky_actions=0.0, clip_rewards=True):
+    envs = [make_env_atari(env_id, seed, i, log_dir, stack_frames=stack_frames, adaptive_repeat=adaptive_repeat, sticky_actions=sticky_actions, clip_rewards=True) for i in range(num_envs)]
+    envs = DummyVecEnv(envs) if len(envs) == 1 else SubprocVecEnv(envs)
+
+    return envs
+
 def make_env_atari(env_id, seed, rank, log_dir, stack_frames=4, adaptive_repeat=[4], sticky_actions=0.0, clip_rewards=True):
     def _thunk():        
         env = make_atari_custom(env_id, max_episode_steps=None, skip=adaptive_repeat, sticky_actions=0.0)
@@ -123,7 +139,7 @@ def make_env_atari(env_id, seed, rank, log_dir, stack_frames=4, adaptive_repeat=
     return _thunk
 
 
-def make_mujoco(env_id, seed, log_dir, num_envs, gamma, device, early_resets, frame_stack=None):
+def make_mujoco(env_id, seed, log_dir, num_envs, gamma):
     envs = [make_env_continuous(env_id, seed, i, log_dir) for i in range(num_envs)]
     envs = DummyVecEnv(envs) if len(envs) == 1 else SubprocVecEnv(envs)
 

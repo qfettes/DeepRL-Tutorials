@@ -58,7 +58,6 @@ class Agent(BaseAgent):
 
     def declare_networks(self):
         self.model = ActorCritic(self.num_feats, self.action_space, body_out=self.config.body_out, use_gru=self.config.policy_gradient_recurrent_policy, gru_size=self.config.gru_size, noisy_nets=self.config.noisy_nets, sigma_init=self.config.sigma_init)
-        
 
     def training_priors(self):
         self.obs = self.envs.reset()
@@ -127,7 +126,7 @@ class Agent(BaseAgent):
 
         values, action_log_probs, dist_entropy, states = self.evaluate_actions(
             rollouts.observations[:-1].view(-1, *obs_shape),
-            rollouts.actions.view(-1, 1),
+            rollouts.actions.view(-1, rollouts.actions.shape[-1]),
             rollouts.states[0].view(-1, self.model.state_size),
             rollouts.masks[:-1].view(-1, 1))
 
