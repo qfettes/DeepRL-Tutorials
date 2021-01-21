@@ -26,8 +26,6 @@ from utils.plot import plot_reward
 from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
 from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
 
-from IPython.display import clear_output
-
 parser = argparse.ArgumentParser(description='RL')
 # Meta Info
 parser.add_argument('--algo', default='dqn',
