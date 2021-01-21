@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from networks.layers import NoisyLinear
-from networks.network_bodies import SimpleBody, AtariBody
+from networks.network_bodies import SimpleBody, AtariBody, AtariBodyAC, SimpleBodyAC
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class DQN(nn.Module):
@@ -88,8 +88,9 @@ class CategoricalDQN(nn.Module):
 
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
+        x = x.view(-1, self.num_actions, self.c51_atoms)
 
-        return F.softmax(x.view(-1, self.num_actions, self.c51_atoms), dim=2)
+        return F.softmax(x, dim=-1), F.log_softmax(x, dim=-1)
     
     def sample_noise(self):
         if self.noisy:
@@ -126,7 +127,7 @@ class CategoricalDuelingDQN(nn.Module):
 
         final = val + adv - adv.mean(dim=1).view(-1, 1, self.c51_atoms)
 
-        return F.softmax(final, dim=2)
+        return F.softmax(final, dim=-1), F.log_softmax(final, dim=-1)
     
     def sample_noise(self):
         if self.noisy:
@@ -248,61 +249,103 @@ class DRQN(nn.Module):
 
 
 ########Actor Critic Architectures#########
+# class ActorCritic(nn.Module):
+#     def __init__(self, input_shape, num_actions, conv_out=64, use_gru=False, gru_size=256, noisy_nets=False, sigma_init=0.5):
+#         super(ActorCritic, self).__init__()
+#         self.conv_out = conv_out
+#         self.use_gru = use_gru
+#         self.gru_size = gru_size
+#         self.noisy_nets = noisy_nets
+    
+#         num_outputs = num_actions.shape[0]
+#         self.logstd = nn.Parameter(torch.zeros(num_outputs))
+        
+#         self.fc1 = nn.Linear(input_shape[0], 128)
+#         self.fc2 = nn.Linear(128, 128)
+#         self.fc3 = nn.Linear(128, 128)
+#         self.critic_linear = nn.Linear(128, 1)
+#         self.actor_linear = nn.Linear(128, num_outputs)
+        
+#         self.train()
+
+#     def forward(self, inputs, states, masks):
+#         x = F.tanh(self.fc1(inputs))
+#         x = F.tanh(self.fc2(x))
+#         x = F.tanh(self.fc3(x))
+        
+#         value = self.critic_linear(x)
+#         logits = self.actor_linear(x)
+
+#         return logits, value, states
+
+#     def sample_noise(self):
+#         if self.noisy_nets:
+#             pass
+    
+#     @property
+#     def state_size(self):
+#         if self.use_gru:
+#             return self.gru_size
+#         else:
+#             return 1
+
 class ActorCritic(nn.Module):
-    def __init__(self, input_shape, num_actions, conv_out=64, use_gru=False, gru_size=256, noisy_nets=False, sigma_init=0.5):
+    def __init__(self, input_shape, num_actions, body_out=64, use_gru=False, gru_size=256, noisy_nets=False, sigma_init=0.5):
         super(ActorCritic, self).__init__()
-        self.conv_out = conv_out
+        self.body_out = body_out
         self.use_gru = use_gru
         self.gru_size = gru_size
         self.noisy_nets = noisy_nets
 
-        init_ = lambda m: self.layer_init(m, nn.init.orthogonal_,
-                    lambda x: nn.init.constant_(x, 0),
-                    nn.init.calculate_gain('relu'))
+        self.continuous = True if num_actions.__class__.__name__ == 'Box' else False
 
-        self.conv1 = init_(nn.Conv2d(input_shape[0], 32, kernel_size=8, stride=4))
-        self.conv2 = init_(nn.Conv2d(32, 64, kernel_size=4, stride=2))
-        self.conv3 = init_(nn.Conv2d(64, self.conv_out, kernel_size=3, stride=1))
+        if not self.continuous:
+            self.body = AtariBodyAC(input_shape, body_out, noisy_nets, sigma_init)
+            num_outputs = num_actions
+        else:
+            self.body = SimpleBodyAC(input_shape, body_out, noisy_nets, sigma_init)
+            num_outputs = num_actions.shape[0]
+            self.logstd = nn.Parameter(torch.zeros(num_outputs))
+
+        encoder_out = self.gru_size
 
         init_ = lambda m: self.layer_init(m, nn.init.orthogonal_,
                         lambda x: nn.init.constant_(x, 0),
                         nn.init.calculate_gain('relu'),
                         noisy_layer=self.noisy_nets)
         if use_gru:
-            self.fc1 = init_(nn.Linear(self.feature_size(input_shape), 512)) if not self.noisy_nets else init_(NoisyLinear(self.feature_size(input_shape), 512, sigma_init))
-            self.gru = nn.GRU(512, self.gru_size)
+            self.gru = nn.GRU(self.body_out, self.gru_size)
             for name, param in self.gru.named_parameters():
                 if 'bias' in name:
                     nn.init.constant_(param, 0)
                 elif 'weight' in name:
                     nn.init.orthogonal_(param)
         else:
-            self.fc1 = init_(nn.Linear(self.feature_size(input_shape), self.gru_size)) if not self.noisy_nets else init_(NoisyLinear(self.feature_size(input_shape), self.gru_size, sigma_init))
+            if self.continuous:
+                self.fc1 = init_(nn.Linear(body_out, self.gru_size)) if not self.noisy_nets else init_(NoisyLinear(body_out, self.gru_size, sigma_init)) 
+            else:
+                encoder_out = self.body_out
 
+        #final actor and critic layers
         init_ = lambda m: self.layer_init(m, nn.init.orthogonal_,
                     lambda x: nn.init.constant_(x, 0), gain=1,
                     noisy_layer=self.noisy_nets)
 
-        self.critic_linear = init_(nn.Linear(self.gru_size, 1)) if not self.noisy_nets else init_(NoisyLinear(self.gru_size, 1, sigma_init))
+        self.critic_linear = init_(nn.Linear(encoder_out, 1)) if not self.noisy_nets else init_(NoisyLinear(self.gru_size, 1, sigma_init))
 
         init_ = lambda m: self.layer_init(m, nn.init.orthogonal_,
                     lambda x: nn.init.constant_(x, 0), gain=0.01,
                     noisy_layer=self.noisy_nets)
 
-        self.actor_linear = init_(nn.Linear(self.gru_size, num_actions)) if not self.noisy_nets else init_(NoisyLinear(self.gru_size, num_actions, sigma_init))
+        self.actor_linear = init_(nn.Linear(encoder_out, num_outputs)) if not self.noisy_nets else init_(NoisyLinear(self.gru_size, num_outputs, sigma_init))
         
         self.train()
         if self.noisy_nets:
             self.sample_noise()
 
     def forward(self, inputs, states, masks):
-        x = F.relu(self.conv1(inputs))
-        x = F.relu(self.conv2(x))
-        x = F.relu(self.conv3(x))
+        x = self.body(inputs)
 
-
-        x = x.view(x.size(0), -1)
-        x = F.relu(self.fc1(x))
         if self.use_gru:
             if inputs.size(0) == states.size(0):
                 x, states = self.gru(x.unsqueeze(0), (states * masks).unsqueeze(0))
@@ -356,6 +399,8 @@ class ActorCritic(nn.Module):
                 # flatten
                 x = x.view(T * N, -1)
                 states = states.squeeze(0)
+        elif self.continuous:
+            x = self.fc1(x)
 
         value = self.critic_linear(x)
         logits = self.actor_linear(x)
@@ -376,9 +421,6 @@ class ActorCritic(nn.Module):
             self.critic_linear.sample_noise()
             self.actor_linear.sample_noise()
             self.fc1.sample_noise()
-
-    def feature_size(self, input_shape):
-        return self.conv3(self.conv2(self.conv1(torch.zeros(1, *input_shape)))).view(1, -1).size(1)
     
     @property
     def state_size(self):

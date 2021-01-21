@@ -31,7 +31,7 @@ class BaseAgent(object):
 
         self.rewards = []
 
-        self.action_selections = [0 for _ in range(env.action_space.n)]
+        # self.action_selections = [0 for _ in range(env.action_space.n)]
 
     def save_w(self):
         torch.save(self.model.state_dict(), os.path.join(self.log_dir, 'saved_model', 'model.dump'))

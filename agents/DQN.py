@@ -110,7 +110,6 @@ class Agent(BaseAgent):
         batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values = data
 
         batch_state = torch.from_numpy(batch_state).to(self.config.device).to(torch.float)
-        batch_state = batch_state if self.config.s_norm is None else batch_state/self.config.s_norm
 
         batch_action = torch.from_numpy(batch_action).to(self.config.device).to(torch.long).unsqueeze(dim=1)
         
@@ -119,7 +118,6 @@ class Agent(BaseAgent):
         non_final_mask = torch.from_numpy(non_final_mask).to(self.config.device).to(torch.bool)
         if not empty_next_state_values:
             non_final_next_states = torch.from_numpy(non_final_next_states).to(self.config.device).to(torch.float)
-            non_final_next_states = non_final_next_states if self.config.s_norm is None else non_final_next_states/self.config.s_norm
 
         if self.config.priority_replay:
             weights = torch.from_numpy(weights).to(self.config.device).to(torch.float).view(-1, 1)
@@ -128,6 +126,8 @@ class Agent(BaseAgent):
 
     def compute_loss(self, batch_vars, tstep): 
         batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights = batch_vars
+        print(batch_state.shape, batch_action.shape, batch_reward.shape, non_final_next_states.shape, non_final_mask.shape)
+        exit()
 
         #estimate
         self.model.sample_noise()
@@ -214,7 +214,6 @@ class Agent(BaseAgent):
 
             if np.random.random() > eps or self.config.noisy_nets:
                 X = torch.from_numpy(s).to(self.config.device).to(torch.float).view((-1,)+self.num_feats)
-                X = X if self.config.s_norm is None else X/self.config.s_norm
 
                 self.model.sample_noise()
                 return torch.argmax(self.model(X), dim=1).cpu().numpy()
@@ -230,7 +229,6 @@ class Agent(BaseAgent):
     def add_graph(self, inp):
         with torch.no_grad():
             X = torch.from_numpy(inp).to(self.config.device).to(torch.float).view((-1,)+self.num_feats)
-            X = X if self.config.s_norm is None else X/self.config.s_norm
             self.tb_writer.add_graph(self.model, X)
             self.first_action = False
 

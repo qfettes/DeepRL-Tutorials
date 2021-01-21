@@ -14,11 +14,11 @@ class Config(object):
         self.print_threshold = 100
         self.save_threshold = 1000
         self.render = False
+        self.correct_time_limits = False
 
         #preprocessing
         self.stack_frames = 4
         self.adaptive_repeat = [4]
-        self.s_norm = 255.0
         self.sticky_actions = 0.0
 
         #Learning control variables
@@ -30,6 +30,7 @@ class Config(object):
         self.use_lr_schedule = False
         self.grad_norm_max = 40.0
         self.gamma = 0.99
+        self.body_out = 64
 
         #RMSProp params
         self.rms_alpha = 0.99

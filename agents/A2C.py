@@ -18,7 +18,17 @@ class Agent(BaseAgent):
         super(Agent, self).__init__(env=env, config=config, log_dir=log_dir, tb_writer=tb_writer)
         self.config = config
         self.num_feats = env.observation_space.shape
-        self.num_actions = env.action_space.n * len(config.adaptive_repeat)
+
+        self.continousActionSpace = False
+        if env.action_space.__class__.__name__ == 'Discrete':
+            self.action_space = env.action_space.n * len(config.adaptive_repeat)
+        elif env.action_space.__class__.__name__ == 'Box':
+            self.action_space = env.action_space
+            self.continousActionSpace = True
+        else:
+            print('[ERROR] Unrecognized Action Space Type')
+            exit()
+        
         self.envs = env
 
         self.declare_networks()
@@ -35,7 +45,7 @@ class Agent(BaseAgent):
 
         self.rollouts = RolloutStorage(self.config.update_freq , self.config.num_envs,
             self.num_feats, self.envs.action_space, self.model.state_size,
-            self.config.device, config.use_gae, config.gae_tau)
+            self.config.device, config.use_gae, config.gae_tau, config.correct_time_limits)
 
         self.value_losses = []
         self.entropy_losses = []
@@ -47,13 +57,12 @@ class Agent(BaseAgent):
 
 
     def declare_networks(self):
-        self.model = ActorCritic(self.num_feats, self.num_actions, conv_out=64, use_gru=self.config.policy_gradient_recurrent_policy, gru_size=self.config.gru_size, noisy_nets=self.config.noisy_nets, sigma_init=self.config.sigma_init)
+        self.model = ActorCritic(self.num_feats, self.action_space, body_out=self.config.body_out, use_gru=self.config.policy_gradient_recurrent_policy, gru_size=self.config.gru_size, noisy_nets=self.config.noisy_nets, sigma_init=self.config.sigma_init)
 
     def training_priors(self):
         self.obs = self.envs.reset()
     
         obs = torch.from_numpy(self.obs.astype(np.float32)).to(self.config.device)
-        obs = obs if self.config.s_norm is None else obs/self.config.s_norm
 
         self.rollouts.observations[0].copy_(obs)
         
@@ -66,28 +75,40 @@ class Agent(BaseAgent):
             self.add_graph(s, states, masks)
 
         logits, values, states = self.model(s, states, masks)
-        dist = torch.distributions.Categorical(logits=logits)
 
-        if deterministic:
-            #TODO: different in original
-            actions = dist.probs.argmax(dim=1, keepdim=True)
+        #TODO: clean this up
+        if self.continousActionSpace:
+            dist = torch.distributions.Normal(logits, F.softplus(self.model.logstd))
+            actions = dist.sample()
+            action_log_probs = dist.log_prob(actions).sum(-1, keepdim=True)
         else:
-            actions = dist.sample().view(-1, 1)
+            dist = torch.distributions.Categorical(logits=logits)
+            if deterministic:
+                #TODO: different in original
+                actions = dist.probs.argmax(dim=1, keepdim=True)
+            else:
+                actions = dist.sample().view(-1, 1)
 
-        log_probs = F.log_softmax(logits, dim=1)
-        action_log_probs = log_probs.gather(1, actions)
+            log_probs = F.log_softmax(logits, dim=1)
+            action_log_probs = log_probs.gather(1, actions)
 
         return values, actions, action_log_probs, states
 
     def evaluate_actions(self, s, actions, states, masks):
         logits, values, states = self.model(s, states, masks)
 
-        dist = torch.distributions.Categorical(logits=logits)
+        #TODO: clean this up
+        if self.continousActionSpace:
+            dist = torch.distributions.Normal(logits, F.softplus(self.model.logstd))
+            action_log_probs = dist.log_prob(actions).sum(-1, keepdim=True)
+            dist_entropy = dist.entropy().sum(1).mean()
+        else:
+            dist = torch.distributions.Categorical(logits=logits)
 
-        log_probs = F.log_softmax(logits, dim=1)
-        action_log_probs = log_probs.gather(1, actions)
+            log_probs = F.log_softmax(logits, dim=1)
+            action_log_probs = log_probs.gather(1, actions)
 
-        dist_entropy = dist.entropy().mean()
+            dist_entropy = dist.entropy().mean()
 
         return values, action_log_probs, dist_entropy, states
 
@@ -105,7 +126,7 @@ class Agent(BaseAgent):
 
         values, action_log_probs, dist_entropy, states = self.evaluate_actions(
             rollouts.observations[:-1].view(-1, *obs_shape),
-            rollouts.actions.view(-1, 1),
+            rollouts.actions.view(-1, rollouts.actions.shape[-1]),
             rollouts.states[0].view(-1, self.model.state_size),
             rollouts.masks[:-1].view(-1, 1))
 
@@ -131,7 +152,6 @@ class Agent(BaseAgent):
 
         self.tb_writer.add_scalar('Learning/Learning Rate', np.mean([param_group['lr'] for param_group in self.optimizer.param_groups]), tstep)
 
-
         return loss, action_loss, value_loss, dist_entropy, 0.
 
     def update_(self, rollout, next_value, tstep):
@@ -145,8 +165,9 @@ class Agent(BaseAgent):
         with torch.no_grad():
             grad_norm = 0.
             for p in self.model.parameters():
-                param_norm = p.grad.data.norm(2)
-                grad_norm += param_norm.item() ** 2
+                if p.requires_grad:
+                    param_norm = p.grad.data.norm(2)
+                    grad_norm += param_norm.item() ** 2
             grad_norm = grad_norm ** (1./2.)
 
             self.tb_writer.add_scalar('Learning/Grad Norm', grad_norm, tstep)
@@ -174,13 +195,14 @@ class Agent(BaseAgent):
                                                         self.rollouts.observations[step],
                                                         self.rollouts.states[step],
                                                         self.rollouts.masks[step])
-        
-        cpu_actions = actions.view(-1).cpu().numpy()
+    
+        cpu_actions = actions.cpu().numpy()
+        if not self.continousActionSpace:
+            cpu_actions = cpu_actions.reshape(-1)
 
         obs, reward, done, info = self.envs.step(cpu_actions)
 
         obs = torch.from_numpy(obs.astype(np.float32)).to(self.config.device)
-        obs = obs if self.config.s_norm is None else obs/self.config.s_norm
 
         #agent rewards
         self.episode_rewards += reward
@@ -189,6 +211,7 @@ class Agent(BaseAgent):
         self.final_rewards += (1. - masks) * self.episode_rewards
         self.episode_rewards *= masks
 
+        bad_masks = []
         for idx, inf in enumerate(info):
             if 'episode' in inf.keys():
                 self.last_100_rewards.append(inf['episode']['r'])
@@ -199,12 +222,16 @@ class Agent(BaseAgent):
                 #write reward on completion
                 self.tb_writer.add_scalar('Performance/Agent Reward', self.final_rewards[idx], current_timestep+idx)
 
+            if 'bad_transition' in inf.keys():
+                bad_masks.append([0.0])
+            else:
+                bad_masks.append([1.0])
+
         rewards = torch.from_numpy(reward.astype(np.float32)).view(-1, 1).to(self.config.device)
         masks = torch.from_numpy(masks).to(self.config.device).view(-1, 1)
+        bad_masks = torch.tensor(bad_masks, dtype=torch.float, device=self.config.device)
 
-        obs *= masks.view(-1, 1, 1, 1)
-
-        self.rollouts.insert(obs, states, actions.view(-1, 1), action_log_prob, values, rewards, masks)
+        self.rollouts.insert(obs, states, actions, action_log_prob, values, rewards, masks, bad_masks)
 
     def update(self, current_tstep):
         with torch.no_grad():
