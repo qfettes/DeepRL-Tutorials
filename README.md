@@ -3,6 +3,8 @@
 * Why is Rainbow so slow?
 * Finish implementing curious agent
 * Rename each agent class from "Agent" to something more descriptive
+* Remove baselines dependency
+* Fix scaling in policy gradient methods. Values need to be scaled 0-1
 
 # DeepRL-Tutorials
 The intent of these IPython Notebooks are mostly to help me practice and understand the papers I read; thus, I will opt for readability over efficiency in some cases. First the implementation will be uploaded, followed by markup to explain each portion of code. I'll be assigning credit for any code which is  borrowed in the Acknowledgements section of this README.
@@ -91,11 +93,12 @@ python train.py --env-name Reacher-v2 --algo ppo --print-threshold 1 --save-thre
 
 * Python 3.6
 * Numpy 
+* matplotlib
 * Gym 
 * Pytorch>=1.3.0
 * Matplotlib 
 * OpenCV 
-* Baslines
+* Baselines
 * tensorboard
 
 # Known Reproduction Differences

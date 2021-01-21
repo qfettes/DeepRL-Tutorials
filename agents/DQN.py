@@ -110,9 +110,7 @@ class Agent(BaseAgent):
         batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values = data
 
         batch_state = torch.from_numpy(batch_state).to(self.config.device).to(torch.float)
-
         batch_action = torch.from_numpy(batch_action).to(self.config.device).to(torch.long).unsqueeze(dim=1)
-        
         batch_reward = torch.from_numpy(batch_reward).to(self.config.device).to(torch.float).unsqueeze(dim=1)
 
         non_final_mask = torch.from_numpy(non_final_mask).to(self.config.device).to(torch.bool)
@@ -122,12 +120,13 @@ class Agent(BaseAgent):
         if self.config.priority_replay:
             weights = torch.from_numpy(weights).to(self.config.device).to(torch.float).view(-1, 1)
 
+        batch_state /= 255.0
+        non_final_next_states /= 255.0
+
         return batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights
 
     def compute_loss(self, batch_vars, tstep): 
         batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights = batch_vars
-        print(batch_state.shape, batch_action.shape, batch_reward.shape, non_final_next_states.shape, non_final_mask.shape)
-        exit()
 
         #estimate
         self.model.sample_noise()
@@ -214,6 +213,7 @@ class Agent(BaseAgent):
 
             if np.random.random() > eps or self.config.noisy_nets:
                 X = torch.from_numpy(s).to(self.config.device).to(torch.float).view((-1,)+self.num_feats)
+                X /= 255.0
 
                 self.model.sample_noise()
                 return torch.argmax(self.model(X), dim=1).cpu().numpy()

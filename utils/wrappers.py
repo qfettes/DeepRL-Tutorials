@@ -103,14 +103,14 @@ class WrapPyTorch(gym.ObservationWrapper):
         return np.array(observation).transpose(2, 0, 1)
 
 
-def make_env_general(env_id, seed, log_dir, num_envs, gamma, stack_frames=4, adaptive_repeat=[4], sticky_actions=0.0, clip_rewards=True):
+def make_envs_general(env_id, seed, log_dir, num_envs, gamma, stack_frames=4, adaptive_repeat=[4], sticky_actions=0.0, clip_rewards=True):
     env = gym.make(env_id)
+    atari = True if env.action_space.__class__.__name__ == 'Discrete' else False
+    env.close()
 
-    if env.action_space.__class__.__name__ == 'Discrete':
-        env.close()
-        return make_all_atari(env_id, seed, log_dir, num_envs, stack_frames=4, adaptive_repeat=[4], sticky_actions=0.0, clip_rewards=True)
+    if atari:
+        return make_all_atari(env_id, seed, log_dir, num_envs, stack_frames, adaptive_repeat, sticky_actions, clip_rewards)
     else:
-        env.close()
         return make_mujoco(env_id, seed, log_dir, num_envs, gamma)
 
 def make_all_atari(env_id, seed, log_dir, num_envs, stack_frames=4, adaptive_repeat=[4], sticky_actions=0.0, clip_rewards=True):
@@ -121,7 +121,7 @@ def make_all_atari(env_id, seed, log_dir, num_envs, stack_frames=4, adaptive_rep
 
 def make_env_atari(env_id, seed, rank, log_dir, stack_frames=4, adaptive_repeat=[4], sticky_actions=0.0, clip_rewards=True):
     def _thunk():        
-        env = make_atari_custom(env_id, max_episode_steps=None, skip=adaptive_repeat, sticky_actions=0.0)
+        env = make_atari_custom(env_id, max_episode_steps=None, skip=adaptive_repeat, sticky_actions=sticky_actions)
         
         if seed:
             env.seed(seed + rank)
@@ -131,8 +131,7 @@ def make_env_atari(env_id, seed, rank, log_dir, stack_frames=4, adaptive_repeat=
         if log_dir is not None:
             env = bench.Monitor(env, os.path.join(log_dir, str(rank)))
 
-        env = wrap_deepmind_custom(env, episode_life=True, clip_rewards=clip_rewards, frame_stack=stack_frames, scale=True)
-        #env = atari_stack_and_repeat(env, stack_frames, adaptive_repeat, sticky_actions)
+        env = wrap_deepmind_custom(env, episode_life=True, clip_rewards=clip_rewards, frame_stack=stack_frames, scale=False)
         env = WrapPyTorch(env)
 
         return env

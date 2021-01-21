@@ -19,12 +19,9 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from utils import save_config, update_linear_schedule, create_directory
-from utils.wrappers import make_env_atari
+from utils.wrappers import make_envs_general
 from utils.hyperparameters import Config
 from utils.plot import plot_reward
-
-from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
-from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
 
 parser = argparse.ArgumentParser(description='RL')
 # Meta Info
@@ -197,8 +194,7 @@ def train(config, Agent, ipynb=False):
         if torch.cuda.is_available():
             torch.cuda.manual_seed(config.seed)
 
-    envs = [make_env_atari(config.env_id, config.seed, i, log_dir, stack_frames=config.stack_frames, adaptive_repeat=config.adaptive_repeat, sticky_actions=config.sticky_actions, clip_rewards=True) for i in range(config.num_envs)]
-    envs = DummyVecEnv(envs) if len(envs) == 1 else SubprocVecEnv(envs)
+    envs = make_envs_general(config.env_id, config.seed, log_dir, config.num_envs, config.gamma, stack_frames=config.stack_frames, adaptive_repeat=config.adaptive_repeat, sticky_actions=config.sticky_actions, clip_rewards=True)
 
     agent = Agent(env=envs, config=config, log_dir=base_dir, tb_writer=writer)
 
