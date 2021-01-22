@@ -33,18 +33,18 @@ class Agent(BaseAgent):
 
         self.declare_networks()
 
-        self.optimizer = optim.RMSprop(self.q_func.parameters(), lr=self.config.lr, alpha=self.config.rms_alpha, eps=self.config.rms_eps)   
+        self.optimizer = optim.RMSprop(self.policy_value_net.parameters(), lr=self.config.lr, alpha=self.config.rms_alpha, eps=self.config.rms_eps)   
         
         #move to correct device
-        self.q_func = self.q_func.to(self.config.device)
+        self.policy_value_net = self.policy_value_net.to(self.config.device)
 
         if self.config.inference:
-            self.q_func.eval()
+            self.policy_value_net.eval()
         else:
-            self.q_func.train()
+            self.policy_value_net.train()
 
         self.rollouts = RolloutStorage(self.config.update_freq , self.config.num_envs,
-            self.num_feats, self.envs.action_space, self.q_func.state_size,
+            self.num_feats, self.envs.action_space, self.policy_value_net.state_size,
             self.config.device, config.use_gae, config.gae_tau, config.correct_time_limits)
 
         self.value_losses = []
@@ -57,7 +57,7 @@ class Agent(BaseAgent):
 
 
     def declare_networks(self):
-        self.q_func = ActorCritic(self.num_feats, self.action_space, body_out=self.config.body_out, use_gru=self.config.policy_gradient_recurrent_policy, gru_size=self.config.gru_size, noisy_nets=self.config.noisy_nets, sigma_init=self.config.sigma_init)
+        self.policy_value_net = ActorCritic(self.num_feats, self.action_space, body_out=self.config.body_out, use_gru=self.config.policy_gradient_recurrent_policy, gru_size=self.config.gru_size, noisy_nets=self.config.noisy_nets, sigma_init=self.config.sigma_init)
 
     def training_priors(self):
         self.obs = self.envs.reset()
@@ -74,11 +74,11 @@ class Agent(BaseAgent):
         if self.first_action:
             self.add_graph(s, states, masks)
 
-        logits, values, states = self.q_func(s, states, masks)
+        logits, values, states = self.policy_value_net(s, states, masks)
 
         #TODO: clean this up
         if self.continousActionSpace:
-            dist = torch.distributions.Normal(logits, F.softplus(self.q_func.logstd))
+            dist = torch.distributions.Normal(logits, F.softplus(self.policy_value_net.logstd))
             actions = dist.sample()
             action_log_probs = dist.log_prob(actions).sum(-1, keepdim=True)
         else:
@@ -95,11 +95,11 @@ class Agent(BaseAgent):
         return values, actions, action_log_probs, states
 
     def evaluate_actions(self, s, actions, states, masks):
-        logits, values, states = self.q_func(s, states, masks)
+        logits, values, states = self.policy_value_net(s, states, masks)
 
         #TODO: clean this up
         if self.continousActionSpace:
-            dist = torch.distributions.Normal(logits, F.softplus(self.q_func.logstd))
+            dist = torch.distributions.Normal(logits, F.softplus(self.policy_value_net.logstd))
             action_log_probs = dist.log_prob(actions).sum(-1, keepdim=True)
             dist_entropy = dist.entropy().sum(1).mean()
         else:
@@ -113,7 +113,7 @@ class Agent(BaseAgent):
         return values, action_log_probs, dist_entropy, states
 
     def get_values(self, s, states, masks):
-        _, values, _ = self.q_func(s, states, masks)
+        _, values, _ = self.policy_value_net(s, states, masks)
 
         return values
 
@@ -127,7 +127,7 @@ class Agent(BaseAgent):
         values, action_log_probs, dist_entropy, states = self.evaluate_actions(
             rollouts.observations[:-1].view(-1, *obs_shape),
             rollouts.actions.view(-1, rollouts.actions.shape[-1]),
-            rollouts.states[0].view(-1, self.q_func.state_size),
+            rollouts.states[0].view(-1, self.policy_value_net.state_size),
             rollouts.masks[:-1].view(-1, 1))
 
         values = values.view(num_steps, num_processes, 1)
@@ -159,12 +159,12 @@ class Agent(BaseAgent):
 
         self.optimizer.zero_grad()
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.q_func.parameters(), self.config.grad_norm_max)
+        torch.nn.utils.clip_grad_norm_(self.policy_value_net.parameters(), self.config.grad_norm_max)
         self.optimizer.step()
 
         with torch.no_grad():
             grad_norm = 0.
-            for p in self.q_func.parameters():
+            for p in self.policy_value_net.parameters():
                 if p.requires_grad:
                     param_norm = p.grad.data.norm(2)
                     grad_norm += param_norm.item() ** 2
@@ -174,7 +174,7 @@ class Agent(BaseAgent):
 
             if self.config.noisy_nets:
                 sigma_norm = 0.
-                for name, p in self.q_func.named_parameters():
+                for name, p in self.policy_value_net.named_parameters():
                     if p.requires_grad and 'sigma' in name:
                         param_norm = p.data.norm(2)
                         sigma_norm += param_norm.item() ** 2
@@ -186,7 +186,7 @@ class Agent(BaseAgent):
 
     def add_graph(self, inp, states, masks):
         with torch.no_grad():
-            self.tb_writer.add_graph(self.q_func, (inp, states, masks))
+            self.tb_writer.add_graph(self.policy_value_net, (inp, states, masks))
             self.first_action = False
     
     def step(self, current_timestep, step=0):

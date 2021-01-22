@@ -26,21 +26,21 @@ class Agent(BaseAgent):
 
         self.declare_networks()
             
-        self.optimizer = optim.Adam(self.q_func.parameters(), lr=self.config.lr, eps=self.config.adam_eps)
+        self.optimizer = optim.Adam(self.q_net_1.parameters(), lr=self.config.lr, eps=self.config.adam_eps)
         
         self.loss_fun = torch.nn.SmoothL1Loss(reduction='none')
         # self.loss_fun = torch.nn.MSELoss(reduction='mean')
         
         #move to correct device
-        self.q_func = self.q_func.to(self.config.device)
-        self.target_q_func.to(self.config.device)
+        self.q_net_1 = self.q_net_1.to(self.config.device)
+        self.target_q_net_1.to(self.config.device)
 
         if self.config.inference:
-            self.q_func.eval()
-            self.target_q_func.eval()
+            self.q_net_1.eval()
+            self.target_q_net_1.eval()
         else:
-            self.q_func.train()
-            self.target_q_func.train()
+            self.q_net_1.train()
+            self.target_q_net_1.train()
 
         self.declare_memory()
         self.update_count = 0
@@ -52,13 +52,14 @@ class Agent(BaseAgent):
 
     def declare_networks(self):
         if self.config.dueling_dqn:
-            self.q_func = DuelingDQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody)
-            self.target_q_func = DuelingDQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody)
+            self.q_net_1 = DuelingDQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody)
+			self.q_net_2 = DuelingDQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody)
+            self.target_q_net_1 = DuelingDQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody)
         else:
-            self.q_func = DQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody)
-            self.target_q_func = DQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody)
+            self.q_net_1 = DQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody)
+            self.target_q_net_1 = DQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody)
         
-		self.target_q_func.load_state_dict(self.q_func.state_dict())
+		self.target_q_net_1.load_state_dict(self.q_net_1.state_dict())
 
     def declare_memory(self):
         if self.config.priority_replay:
@@ -130,19 +131,19 @@ class Agent(BaseAgent):
         batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights = batch_vars
 
         #estimate
-        self.q_func.sample_noise()
-        current_q_values = self.q_func(batch_state).gather(1, batch_action)
+        self.q_net_1.sample_noise()
+        current_q_values = self.q_net_1(batch_state).gather(1, batch_action)
         
         #target
         with torch.no_grad():
             next_q_values = torch.zeros(self.config.batch_size, device=self.config.device, dtype=torch.float).unsqueeze(dim=1)
-            self.target_q_func.sample_noise()
+            self.target_q_net_1.sample_noise()
             if not empty_next_state_values:
                 if self.config.double_dqn:
-                    max_next_actions = torch.argmax(self.q_func(non_final_next_states), dim=1).view(-1, 1)
-                    next_q_values[non_final_mask] = (self.config.gamma**self.config.N_steps) * self.target_q_func(non_final_next_states).gather(1, max_next_actions)
+                    max_next_actions = torch.argmax(self.q_net_1(non_final_next_states), dim=1).view(-1, 1)
+                    next_q_values[non_final_mask] = (self.config.gamma**self.config.N_steps) * self.target_q_net_1(non_final_next_states).gather(1, max_next_actions)
                 else:
-                    next_q_values[non_final_mask] = (self.config.gamma**self.config.N_steps) * self.target_q_func(non_final_next_states).max(dim=1)[0].view(-1, 1)
+                    next_q_values[non_final_mask] = (self.config.gamma**self.config.N_steps) * self.target_q_net_1(non_final_next_states).max(dim=1)[0].view(-1, 1)
             target = batch_reward + next_q_values
 
         loss = self.loss_fun(current_q_values, target)
@@ -174,7 +175,7 @@ class Agent(BaseAgent):
         # Optimize the model
         self.optimizer.zero_grad()
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.q_func.parameters(), self.config.grad_norm_max)
+        torch.nn.utils.clip_grad_norm_(self.q_net_1.parameters(), self.config.grad_norm_max)
         self.optimizer.step()
 
         self.update_target_model()
@@ -186,7 +187,7 @@ class Agent(BaseAgent):
 
             #log weight norm
             weight_norm = 0.
-            for p in self.q_func.parameters():
+            for p in self.q_net_1.parameters():
                 param_norm = p.data.norm(2)
                 weight_norm += param_norm.item() ** 2
             weight_norm = weight_norm ** (1./2.)
@@ -194,7 +195,7 @@ class Agent(BaseAgent):
 
             #log grad_norm
             grad_norm = 0.
-            for p in self.q_func.parameters():
+            for p in self.q_net_1.parameters():
                 param_norm = p.grad.data.norm(2)
                 grad_norm += param_norm.item() ** 2
             grad_norm = grad_norm ** (1./2.)
@@ -203,7 +204,7 @@ class Agent(BaseAgent):
             #log sigma param norm
             if self.config.noisy_nets:
                 sigma_norm = 0.
-                for name, p in self.q_func.named_parameters():
+                for name, p in self.q_net_1.named_parameters():
                     if p.requires_grad and 'sigma' in name:
                         param_norm = p.data.norm(2)
                         sigma_norm += param_norm.item() ** 2
@@ -219,8 +220,8 @@ class Agent(BaseAgent):
                 X = torch.from_numpy(s).to(self.config.device).to(torch.float).view((-1,)+self.num_feats)
                 X /= 255.0
 
-                self.q_func.sample_noise()
-                return torch.argmax(self.q_func(X), dim=1).cpu().numpy()
+                self.q_net_1.sample_noise()
+                return torch.argmax(self.q_net_1(X), dim=1).cpu().numpy()
             else:
                 return np.random.randint(0, self.num_actions, (s.shape[0]))
 
@@ -228,12 +229,12 @@ class Agent(BaseAgent):
         self.update_count+=1
         self.update_count = int(self.update_count) % int(self.config.target_net_update_freq)
         if self.update_count == 0:
-            self.target_q_func.load_state_dict(self.q_func.state_dict())
+            self.target_q_net_1.load_state_dict(self.q_net_1.state_dict())
 
     def add_graph(self, inp):
         with torch.no_grad():
             X = torch.from_numpy(inp).to(self.config.device).to(torch.float).view((-1,)+self.num_feats)
-            self.tb_writer.add_graph(self.q_func, X)
+            self.tb_writer.add_graph(self.q_net_1, X)
             self.first_action = False
 
     def reset_hx(self, idx):

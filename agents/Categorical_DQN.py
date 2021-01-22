@@ -16,25 +16,25 @@ class Agent(DQN_Agent):
 
     def declare_networks(self):
         if self.config.dueling_dqn:
-            self.q_func = CategoricalDuelingDQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody, atoms=self.config.c51_atoms)
-            self.target_q_func = CategoricalDuelingDQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody, atoms=self.config.c51_atoms)
+            self.q_net = CategoricalDuelingDQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody, atoms=self.config.c51_atoms)
+            self.target_q_net = CategoricalDuelingDQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody, atoms=self.config.c51_atoms)
         else:
-            self.q_func = CategoricalDQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody, atoms=self.config.c51_atoms)
-            self.target_q_func = CategoricalDQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody, atoms=self.config.c51_atoms)
+            self.q_net = CategoricalDQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody, atoms=self.config.c51_atoms)
+            self.target_q_net = CategoricalDQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody, atoms=self.config.c51_atoms)
 
     def projection_distribution(self, batch_vars):
         batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights = batch_vars
 
         with torch.no_grad():
-            self.target_q_func.sample_noise()
+            self.target_q_net.sample_noise()
             max_next_dist = torch.zeros((self.config.batch_size, 1, self.config.c51_atoms), device=self.config.device, dtype=torch.float) + 1. / self.config.c51_atoms
             
             if not empty_next_state_values:
                 if self.config.double_dqn:
-                    max_next_actions = torch.argmax((self.q_func(non_final_next_states)[0]*self.supports).sum(dim=2), dim=1)
-                    max_next_dist[non_final_mask] = self.target_q_func(non_final_next_states)[0].gather(1, max_next_actions)
+                    max_next_actions = torch.argmax((self.q_net(non_final_next_states)[0]*self.supports).sum(dim=2), dim=1)
+                    max_next_dist[non_final_mask] = self.target_q_net(non_final_next_states)[0].gather(1, max_next_actions)
                 else:
-                    next_probs = (self.target_q_func(non_final_next_states)[0] * self.supports).sum(-1)
+                    next_probs = (self.target_q_net(non_final_next_states)[0] * self.supports).sum(-1)
                     max_next_dist[non_final_mask] = next_probs.max(-1)[0].view(-1, 1, 1).expand(-1, -1, self.config.c51_atoms)
                 max_next_dist = max_next_dist.squeeze()
 
@@ -69,8 +69,8 @@ class Agent(DQN_Agent):
         batch_reward = batch_reward.view(-1, 1, 1)
 
         # estimate
-        self.q_func.sample_noise()
-        log_prob = self.q_func(batch_state)[1].gather(1, batch_action).squeeze()
+        self.q_net.sample_noise()
+        log_prob = self.q_net(batch_state)[1].gather(1, batch_action).squeeze()
 
         target_prob = self.projection_distribution(batch_vars)
           
@@ -90,8 +90,8 @@ class Agent(DQN_Agent):
             if np.random.random() > eps or self.config.noisy_nets:
                 X = torch.from_numpy(s).to(self.config.device).to(torch.float).view((-1,)+self.num_feats)
 
-                self.q_func.sample_noise()
-                a = (self.q_func(X)[0] * self.supports).sum(dim=2)
+                self.q_net.sample_noise()
+                a = (self.q_net(X)[0] * self.supports).sum(dim=2)
                 return torch.argmax(a, dim=1).cpu().numpy()
             else:
                 return np.random.randint(0, self.num_actions, (s.shape[0]))

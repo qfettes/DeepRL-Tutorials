@@ -18,8 +18,8 @@ class Agent(DQN_Agent):
         self.reset_hx()
     
     def declare_networks(self):
-        self.q_func = DRQN(self.num_feats, self.num_actions, body=SimpleBody)
-        self.target_q_func = DRQN(self.num_feats, self.num_actions, body=SimpleBody)
+        self.q_net = DRQN(self.num_feats, self.num_actions, body=SimpleBody)
+        self.target_q_net = DRQN(self.num_feats, self.num_actions, body=SimpleBody)
 
     def declare_memory(self):
         self.memory = RecurrentExperienceReplayMemory(self.experience_replay_size, self.sequence_length)
@@ -52,14 +52,14 @@ class Agent(DQN_Agent):
         batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights = batch_vars
 
         #estimate
-        current_q_values, _ = self.q_func(batch_state)
+        current_q_values, _ = self.q_net(batch_state)
         current_q_values = current_q_values.gather(2, batch_action).squeeze()
         
         #target
         with torch.no_grad():
             max_next_q_values = torch.zeros((self.batch_size, self.sequence_length), device=self.device, dtype=torch.float)
             if not empty_next_state_values:
-                max_next, _ = self.target_q_func(non_final_next_states)
+                max_next, _ = self.target_q_net(non_final_next_states)
                 max_next_q_values[non_final_mask] = max_next.max(dim=2)[0]
             expected_q_values = batch_reward + ((self.gamma**self.nsteps)*max_next_q_values)
 
@@ -75,8 +75,8 @@ class Agent(DQN_Agent):
             self.seq.append(s)
             if np.random.random() >= eps or self.noisy:
                 X = torch.tensor([self.seq], device=self.device, dtype=torch.float) 
-                self.q_func.sample_noise()
-                a, _ = self.q_func(X)
+                self.q_net.sample_noise()
+                a, _ = self.q_net(X)
                 a = a[:, -1, :] #select last element of seq
                 a = a.max(1)[1]
                 return a.item()
@@ -84,11 +84,11 @@ class Agent(DQN_Agent):
                 return np.random.randint(0, self.num_actions)
 
     #def get_max_next_state_action(self, next_states, hx):
-    #    max_next, _ = self.target_q_func(next_states, hx)
+    #    max_next, _ = self.target_q_net(next_states, hx)
     #    return max_next.max(dim=1)[1].view(-1, 1)'''
 
     def reset_hx(self):
-        #self.action_hx = self.q_func.init_hidden(1)
+        #self.action_hx = self.q_net.init_hidden(1)
         self.seq = [np.zeros(self.num_feats) for j in range(self.sequence_length)]
 
     

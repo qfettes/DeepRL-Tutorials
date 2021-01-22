@@ -9,8 +9,8 @@ import torch.optim as optim
 
 class BaseAgent(object):
     def __init__(self, env, config, log_dir='/tmp/gym', tb_writer=None):
-        self.q_func=None
-        self.target_q_func=None
+        self.q_net=None
+        self.target_q_net=None
         self.optimizer = None
 
         self.log_dir = log_dir
@@ -34,7 +34,7 @@ class BaseAgent(object):
         # self.action_selections = [0 for _ in range(env.action_space.n)]
 
     def save_w(self):
-        torch.save(self.q_func.state_dict(), os.path.join(self.log_dir, 'saved_model', 'model.dump'))
+        torch.save(self.q_net.state_dict(), os.path.join(self.log_dir, 'saved_model', 'model.dump'))
         torch.save(self.optimizer.state_dict(), os.path.join(self.log_dir, 'saved_model', 'optim.dump'))
     
     def load_w(self):
@@ -42,7 +42,7 @@ class BaseAgent(object):
         fname_optim = os.path.join(self.log_dir, 'saved_model', 'optim.dump')
 
         if os.path.isfile(fname_model):
-            self.q_func.load_state_dict(torch.load(fname_model))
+            self.q_net.load_state_dict(torch.load(fname_model))
 
         if os.path.isfile(fname_optim):
             self.optimizer.load_state_dict(torch.load(fname_optim))
@@ -58,7 +58,7 @@ class BaseAgent(object):
     def save_sigma_param_magnitudes(self, tstep):
         with torch.no_grad():
             sum_, count = 0.0, 0.0
-            for name, param in self.q_func.named_parameters():
+            for name, param in self.q_net.named_parameters():
                 if param.requires_grad and 'sigma' in name:
                     sum_+= torch.sum(param.abs()).item()
                     count += np.prod(param.shape)
