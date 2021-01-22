@@ -57,8 +57,8 @@ class Agent(BaseAgent):
         else:
             self.q_func = DQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody)
             self.target_q_func = DQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody)
-
-        self.target_q_func.load_state_dict(self.q_func.state_dict())
+        
+		self.target_q_func.load_state_dict(self.q_func.state_dict())
 
     def declare_memory(self):
         if self.config.priority_replay:
@@ -161,6 +161,9 @@ class Agent(BaseAgent):
         return loss
 
     def update_(self, tstep=0):
+		# TODO: add support for more than one update here
+		#   also add support for this to DQNu
+
         if tstep < self.config.learn_start:
             return None
 

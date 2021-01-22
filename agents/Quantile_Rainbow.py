@@ -19,8 +19,8 @@ class Agent(DQN_Agent):
     
     
     def declare_networks(self):
-        self.model = DuelingQRDQN(self.env.observation_space.shape, self.env.action_space.n, noisy=True, sigma_init=self.sigma_init, quantiles=self.num_quantiles)
-        self.target_model = DuelingQRDQN(self.env.observation_space.shape, self.env.action_space.n, noisy=True, sigma_init=self.sigma_init, quantiles=self.num_quantiles)
+        self.q_func = DuelingQRDQN(self.env.observation_space.shape, self.env.action_space.n, noisy=True, sigma_init=self.sigma_init, quantiles=self.num_quantiles)
+        self.target_q_func = DuelingQRDQN(self.env.observation_space.shape, self.env.action_space.n, noisy=True, sigma_init=self.sigma_init, quantiles=self.num_quantiles)
 
     def declare_memory(self):
         self.memory = PrioritizedReplayMemory(self.experience_replay_size, self.priority_alpha, self.priority_beta_start, self.priority_beta_frames)
@@ -31,9 +31,9 @@ class Agent(DQN_Agent):
         with torch.no_grad():
             quantiles_next = torch.zeros((self.batch_size, self.num_quantiles), device=self.device, dtype=torch.float)
             if not empty_next_state_values:
-                self.target_model.sample_noise()
+                self.target_q_func.sample_noise()
                 max_next_action = self.get_max_next_state_action(non_final_next_states)
-                quantiles_next[non_final_mask] = self.target_model(non_final_next_states).gather(1, max_next_action).squeeze(dim=1)
+                quantiles_next[non_final_mask] = self.target_q_func(non_final_next_states).gather(1, max_next_action).squeeze(dim=1)
 
             quantiles_next = batch_reward + ((self.gamma**self.nsteps)*quantiles_next)
 
@@ -44,8 +44,8 @@ class Agent(DQN_Agent):
 
         batch_action = batch_action.unsqueeze(dim=-1).expand(-1, -1, self.num_quantiles)
 
-        self.model.sample_noise()
-        quantiles = self.model(batch_state)
+        self.q_func.sample_noise()
+        quantiles = self.q_func(batch_state)
         quantiles = quantiles.gather(1, batch_action).squeeze(1)
 
         quantiles_next = self.next_distribution(batch_vars)
@@ -63,10 +63,10 @@ class Agent(DQN_Agent):
     def get_action(self, s, eps):
         with torch.no_grad():
             X = torch.tensor([s], device=self.device, dtype=torch.float) 
-            self.model.sample_noise()
-            a = (self.model(X) * self.quantile_weight).sum(dim=2).max(dim=1)[1]
+            self.q_func.sample_noise()
+            a = (self.q_func(X) * self.quantile_weight).sum(dim=2).max(dim=1)[1]
             return a.item()
 
     def get_max_next_state_action(self, next_states):
-        next_dist = self.model(next_states) * self.quantile_weight
+        next_dist = self.q_func(next_states) * self.quantile_weight
         return next_dist.sum(dim=2).max(1)[1].view(next_states.size(0), 1, 1).expand(-1, -1, self.num_quantiles)

@@ -13,7 +13,7 @@ class Agent(A2C):
     def __init__(self, env=None, config=None, log_dir='/tmp/gym', tb_writer=None):
         super(Agent, self).__init__(env=env, config=config, log_dir=log_dir, tb_writer=tb_writer)
 
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.config.lr, eps=self.config.adam_eps)
+        self.optimizer = optim.Adam(self.q_func.parameters(), lr=self.config.lr, eps=self.config.adam_eps)
         
         if self.config.anneal_ppo_clip:
             self.anneal_clip_param_fun = LinearSchedule(self.config.ppo_clip_param, 0.0, 1.0, config.max_tsteps)
@@ -63,7 +63,7 @@ class Agent(A2C):
         all_sigma_norms = []
 
         for e in range(self.config.ppo_epoch):
-            if self.model.use_gru:
+            if self.q_func.use_gru:
                 data_generator = rollout.recurrent_generator(
                     advantages, self.config.ppo_mini_batch)
             else:
@@ -76,12 +76,12 @@ class Agent(A2C):
 
                 self.optimizer.zero_grad()
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.grad_norm_max)
+                torch.nn.utils.clip_grad_norm_(self.q_func.parameters(), self.config.grad_norm_max)
                 self.optimizer.step()
 
                 with torch.no_grad():
                     grad_norm = 0.
-                    for p in self.model.parameters():
+                    for p in self.q_func.parameters():
                         param_norm = p.grad.data.norm(2)
                         grad_norm += param_norm.item() ** 2
                     grad_norm = grad_norm ** (1./2.)
@@ -89,7 +89,7 @@ class Agent(A2C):
 
                     if self.config.noisy_nets:
                         sigma_norm = 0.
-                        for name, p in self.model.named_parameters():
+                        for name, p in self.q_func.named_parameters():
                             if p.requires_grad and 'sigma' in name:
                                 param_norm = p.data.norm(2)
                                 sigma_norm += param_norm.item() ** 2
