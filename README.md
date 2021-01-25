@@ -7,6 +7,7 @@
 * Fix scaling in policy gradient methods. Values need to be scaled 0-1
 * Remove the if(self.first_action) garbage
 * Noisy Nets for Exploration isn't actually implemented for all(?) policy gradient algorithms
+* Takes uniform random actions at start of every training session in SAC: My implementation needs to add this
 
 # DeepRL-Tutorials
 The intent of these IPython Notebooks are mostly to help me practice and understand the papers I read; thus, I will opt for readability over efficiency in some cases. First the implementation will be uploaded, followed by markup to explain each portion of code. I'll be assigning credit for any code which is  borrowed in the Acknowledgements section of this README.
@@ -89,6 +90,11 @@ python train.py --env-name Reacher-v2 --algo a2c --print-threshold 25 --save-thr
 ### Continuous PPO:
 ```
 python train.py --env-name Reacher-v2 --algo ppo --print-threshold 1 --save-threshold 10 --max-tsteps 10000000 --learn-start 0 --nenvs 1 --update-freq 2048 --lr 3.0e-4 --anneal-lr --max-grad-norm 0.5 --adam-eps 1.0e-5 --value-loss-coef 0.5 --entropy-coef 0.0 --enable-gae --disable-ppo-clip-value --ppo-epoch 10 --ppo-mini-batch 32 --ppo-clip-param 0.2 --body-out 200 --gru-size 128
+```
+
+### Soft Actor-Critic
+```
+python train.py --algo sac --print-threshold 100 --lr 0.001 --entropy-coef 0.2 --batch-size 100 --learn-start 10000 --update-freq 50
 ```
     
 ## Requirements: 
