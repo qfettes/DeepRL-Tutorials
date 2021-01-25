@@ -209,10 +209,10 @@ class Agent(BaseAgent):
         
         with torch.no_grad():
             on_policy_q_values_1 = self.target_q_net_1(batch_state)
-            on_policy_q_values_1 = on_policy_q_values.gather(1, on_policy_actions)
+            on_policy_q_values_1 = on_policy_q_values_1.gather(1, on_policy_actions)
 
             on_policy_q_values_2 = self.target_q_net_2(batch_state)
-            on_policy_q_values_2 = on_policy_q_values.gather(1, on_policy_actions)
+            on_policy_q_values_2 = on_policy_q_values_2.gather(1, on_policy_actions)
 
             on_policy_q_values = torch.min(
                     torch.cat((on_policy_q_values_1, on_policy_q_values_2), dim=1),
@@ -225,7 +225,7 @@ class Agent(BaseAgent):
 
         #log val estimates
         with torch.no_grad():
-            self.tb_writer.add_scalar('Policy/Value Estimate', current_q_values.detach().mean().item(), tstep)
+            self.tb_writer.add_scalar('Policy/Value Estimate', current_q_values_1.detach().mean().item(), tstep)
             self.tb_writer.add_scalar('Policy/Next Value Estimate', target.detach().mean().item(), tstep)
 
         return loss
