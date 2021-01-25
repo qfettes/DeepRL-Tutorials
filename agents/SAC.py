@@ -349,3 +349,11 @@ class Agent(BaseAgent):
 
     def update(self, current_tstep):
         self.update_(current_tstep)
+
+    # TODO: Fix saving
+    def save_w(self):
+        pass
+    
+    # TODO: Fix loading
+    def load_w(self):
+        pass
