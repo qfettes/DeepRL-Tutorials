@@ -221,12 +221,14 @@ class Agent(BaseAgent):
         policy_loss = on_policy_q_values - self.config.entropy_coef * on_policy_action_log_probs
         policy_loss = policy_loss.mean()
 
-        loss = policy_loss + value_loss
+        loss = value_loss - policy_loss
 
         #log val estimates
         with torch.no_grad():
-            self.tb_writer.add_scalar('Policy/Value Estimate', current_q_values_1.detach().mean().item(), tstep)
+            self.tb_writer.add_scalar('Policy/Value Estimate', torch.cat((current_q_values_1, current_q_values_2)).detach().mean().item(), tstep)
             self.tb_writer.add_scalar('Policy/Next Value Estimate', target.detach().mean().item(), tstep)
+            self.tb_writer.add_scalar('Loss/Value Loss', value_loss.item(), tstep)
+            self.tb_writer.add_scalar('Loss/Policy Loss', policy_loss.item(), tstep)
 
         return loss
 
