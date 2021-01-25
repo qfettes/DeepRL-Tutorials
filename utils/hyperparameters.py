@@ -43,6 +43,7 @@ class Config(object):
         self.exp_replay_size = int(1e6)
         self.batch_size = 32
         self.target_net_update_freq = int(1e4)
+        self.polyak_coef = 0.995
 
         #epsilon variables
         self.epsilon_start = 1.0
@@ -84,7 +85,7 @@ class Config(object):
         self.gru_size = 512
 
         # a2c controls
-        self.entropy_loss_weight = 0.01
+        self.entropy_coef = 0.01
         self.value_loss_weight = 0.5
 
         # gae control

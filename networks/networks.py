@@ -428,3 +428,134 @@ class ActorCritic(nn.Module):
             return self.gru_size
         else:
             return 1
+
+class Actor(nn.Module):
+    def __init__(self, input_shape, num_actions, body_out=64, use_gru=False, gru_size=256, noisy_nets=False, sigma_init=0.5):
+        super(Actor, self).__init__()
+        self.body_out = body_out
+        self.use_gru = use_gru
+        self.gru_size = gru_size
+        self.noisy_nets = noisy_nets
+
+        self.continuous = True if num_actions.__class__.__name__ == 'Box' else False
+
+        if not self.continuous:
+            self.body = AtariBodyAC(input_shape, body_out, noisy_nets, sigma_init)
+            num_outputs = num_actions
+        else:
+            self.body = SimpleBodyAC(input_shape, body_out, noisy_nets, sigma_init)
+            num_outputs = num_actions.shape[0]
+            self.logstd = nn.Parameter(torch.zeros(num_outputs))
+
+        encoder_out = self.gru_size
+
+        init_ = lambda m: self.layer_init(m, nn.init.orthogonal_,
+                        lambda x: nn.init.constant_(x, 0),
+                        nn.init.calculate_gain('relu'),
+                        noisy_layer=self.noisy_nets)
+        if use_gru:
+            self.gru = nn.GRU(self.body_out, self.gru_size)
+            for name, param in self.gru.named_parameters():
+                if 'bias' in name:
+                    nn.init.constant_(param, 0)
+                elif 'weight' in name:
+                    nn.init.orthogonal_(param)
+        else:
+            if self.continuous:
+                self.fc1 = init_(nn.Linear(body_out, self.gru_size)) if not self.noisy_nets else init_(NoisyLinear(body_out, self.gru_size, sigma_init)) 
+            else:
+                encoder_out = self.body_out
+
+        init_ = lambda m: self.layer_init(m, nn.init.orthogonal_,
+                    lambda x: nn.init.constant_(x, 0), gain=0.01,
+                    noisy_layer=self.noisy_nets)
+
+        self.actor_linear = init_(nn.Linear(encoder_out, num_outputs)) if not self.noisy_nets else init_(NoisyLinear(self.gru_size, num_outputs, sigma_init))
+        
+        self.train()
+        if self.noisy_nets:
+            self.sample_noise()
+
+    def forward(self, inputs, states, masks):
+        x = self.body(inputs)
+
+        if self.use_gru:
+            if inputs.size(0) == states.size(0):
+                x, states = self.gru(x.unsqueeze(0), (states * masks).unsqueeze(0))
+                x = x.squeeze(0)
+                states = states.squeeze(0)
+            else:
+                # x is a (T, N, -1) tensor that has been flatten to (T * N, -1)
+                N = states.size(0)
+                T = int(x.size(0) / N)
+
+                # unflatten
+                x = x.view(T, N, x.size(1))
+
+                # Same deal with masks
+                masks = masks.view(T, N)
+
+                # Let's figure out which steps in the sequence have a zero for any agent
+                # We will always assume t=0 has a zero in it as that makes the logic cleaner
+                has_zeros = ((masks[1:] == 0.0) \
+                                .any(dim=-1)
+                                .nonzero()
+                                .squeeze()
+                                .cpu())
+
+                # +1 to correct the masks[1:]
+                if has_zeros.dim() == 0:
+                    # Deal with scalar
+                    has_zeros = [has_zeros.item() + 1]
+                else:
+                    has_zeros = (has_zeros + 1).numpy().tolist()
+
+                # add t=0 and t=T to the list
+                has_zeros = [0] + has_zeros + [T]
+
+                states = states.unsqueeze(0)
+                outputs = []
+                for i in range(len(has_zeros) - 1):
+                    # We can now process steps that don't have any zeros in masks together!
+                    # This is much faster
+                    start_idx = has_zeros[i]
+                    end_idx = has_zeros[i + 1]
+
+                    rnn_scores, states = self.gru(x[start_idx:end_idx], states * masks[start_idx].view(1, -1, 1))
+
+                    outputs.append(rnn_scores)
+
+                # assert len(outputs) == T
+                # x is a (T, N, -1) tensor
+                x = torch.cat(outputs, dim=0)
+                
+                # flatten
+                x = x.view(T * N, -1)
+                states = states.squeeze(0)
+        elif self.continuous:
+            x = self.fc1(x)
+
+        logits = self.actor_linear(x)
+
+        return logits, states
+
+    def layer_init(self, module, weight_init, bias_init, gain=1, noisy_layer=False):
+        if not noisy_layer:
+            weight_init(module.weight.data, gain=gain)
+            bias_init(module.bias.data)
+        else:
+            weight_init(module.weight_mu.data, gain=gain)
+            bias_init(module.bias_mu.data)
+        return module
+
+    def sample_noise(self):
+        if self.noisy_nets:
+            self.actor_linear.sample_noise()
+            self.fc1.sample_noise()
+    
+    @property
+    def state_size(self):
+        if self.use_gru:
+            return self.gru_size
+        else:
+            return 1

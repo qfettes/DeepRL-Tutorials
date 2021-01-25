@@ -5,6 +5,8 @@
 * Rename each agent class from "Agent" to something more descriptive
 * Remove baselines dependency
 * Fix scaling in policy gradient methods. Values need to be scaled 0-1
+* Remove the if(self.first_action) garbage
+* Noisy Nets for Exploration isn't actually implemented for all(?) policy gradient algorithms
 
 # DeepRL-Tutorials
 The intent of these IPython Notebooks are mostly to help me practice and understand the papers I read; thus, I will opt for readability over efficiency in some cases. First the implementation will be uploaded, followed by markup to explain each portion of code. I'll be assigning credit for any code which is  borrowed in the Acknowledgements section of this README.

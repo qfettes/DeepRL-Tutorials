@@ -26,7 +26,7 @@ from utils.plot import plot_reward
 parser = argparse.ArgumentParser(description='RL')
 # Meta Info
 parser.add_argument('--algo', default='dqn',
-					help='algorithm to use: dqn | c51 | a2c | ppo')
+					help='algorithm to use: dqn | c51 | a2c | ppo | sac')
 parser.add_argument('--env-name', default='BreakoutNoFrameskip-v4',
 					help='environment to train on (default: BreakoutNoFrameskip-v4)')
 parser.add_argument('--seed', type=int, default=None, help='random seed. \
@@ -89,6 +89,8 @@ parser.add_argument('--batch-size', type=int, default=32,
 					help='Size of minibatches drawn from replay buffer (default: 32)')
 parser.add_argument('--tnet-update', type=int, default=4e4,
 					help='Num Steps between target net updates (default: 40000)')
+parser.add_argument('--polyak-coef', type=float, default=0.995,
+					help='\theta_targ <- polyak_coef*\theta_targ + (1.-polyak_coef)*\theta while using polyak averaging in SAC (default: 0.995)')
     
 # Epsilon Variables
 parser.add_argument('--eps-start', type=float, default=1.0,
@@ -276,6 +278,8 @@ if __name__=='__main__':
         from agents.A2C import Agent
     elif args.algo == 'ppo':
         from agents.PPO import Agent
+    elif args.algo == 'sac':
+        from agents.SAC import Agent
     else:
         print("INVALID ALGORITHM. ABORT.")
         exit()
@@ -319,6 +323,7 @@ if __name__=='__main__':
     config.exp_replay_size        = int(args.replay_size)
     config.batch_size             = int(args.batch_size)
     config.target_net_update_freq = int(args.tnet_update)
+    config.polyak_coef            = float(args.polyak_coef)
 
     #epsilon variables
     config.epsilon_start = args.eps_start
@@ -360,7 +365,7 @@ if __name__=='__main__':
     config.gru_size                         = int(args.gru_size)
 
     # A2C Controls
-    config.entropy_loss_weight = args.entropy_coef
+    config.entropy_coef = args.entropy_coef
     config.value_loss_weight   = args.value_loss_coef
 
     # GAE Controls

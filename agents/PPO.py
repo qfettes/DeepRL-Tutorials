@@ -42,7 +42,7 @@ class Agent(A2C):
             value_loss = (return_batch - values).pow(2).mul(0.5).mean()
 
         loss = action_loss + self.config.value_loss_weight * value_loss
-        loss -= self.config.entropy_loss_weight * dist_entropy
+        loss -= self.config.entropy_coef * dist_entropy
 
         return loss, action_loss, value_loss, dist_entropy
 

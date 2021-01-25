@@ -139,7 +139,7 @@ class Agent(BaseAgent):
         action_loss = -(advantages.detach() * action_log_probs).mean()
 
         loss = action_loss + self.config.value_loss_weight * value_loss
-        loss -= self.config.entropy_loss_weight * dist_entropy
+        loss -= self.config.entropy_coef * dist_entropy
 
         self.tb_writer.add_scalar('Loss/Total Loss', loss.item(), tstep)
         self.tb_writer.add_scalar('Loss/Policy Loss', action_loss.item(), tstep)
