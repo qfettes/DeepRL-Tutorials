@@ -169,7 +169,7 @@ class Agent(BaseAgent):
         
         #target
         with torch.no_grad():
-            _, next_action_log_probs, _ = self.get_action(non_final_next_states, states=None, masks=None, deterministic=False)
+            next_actions, next_action_log_probs, _ = self.get_action(non_final_next_states, states=None, masks=None, deterministic=False)
 
             # TODO: We can't use self.config.batch_size here in microservices
             #   Value function batches will be variable size. Remove this and 
@@ -182,13 +182,14 @@ class Agent(BaseAgent):
             
             if not empty_next_state_values:
                 next_q_values_1[non_final_mask] = (self.config.gamma**self.config.N_steps) * \
-                    (self.target_q_net_1(non_final_next_states).max(dim=1)[0].view(-1, 1) - self.config.entropy_coef * next_action_log_probs)
+                    (self.target_q_net_1(non_final_next_states).gather(1, next_actions)
                 next_q_values_2[non_final_mask] = (self.config.gamma**self.config.N_steps) * \
-                    (self.target_q_net_2(non_final_next_states).max(dim=1)[0].view(-1, 1) - self.config.entropy_coef * next_action_log_probs)
+                    (self.target_q_net_2(non_final_next_states).gather(1, next_actions)
                 
                 next_q_values = torch.min(
                     torch.cat((next_q_values_1, next_q_values_2), dim=1),
-                    dim=1, keepdim=True)[0]
+                    dim=1, 
+                    keepdim=True)[0] - self.config.entropy_coef * next_action_log_probs)
             
             target = batch_reward + next_q_values
 
@@ -197,12 +198,13 @@ class Agent(BaseAgent):
 
         if self.config.priority_replay:
             with torch.no_grad():
-                # TODO: not clear, is this the best way to prioritize for SAC?
                 diff = torch.abs(2. * target - current_q_values_1 - current_q_values_2).squeeze().cpu().numpy().tolist()
                 self.memory.update_priorities(indices, diff)
             value_loss *= weights
         
-        value_loss = value_loss.mean() #TODO: *2?
+        # Divide by 2 because I added value losses; original computes 
+        #   mean of gradients seperately
+        value_loss = value_loss.mean() / 2.
 
         # Compute policy loss
         on_policy_actions, on_policy_action_log_probs, _ = self.get_action(batch_state, states=None, masks=None, deterministic=False)

@@ -243,3 +243,17 @@ class Agent(BaseAgent):
             value_loss, action_loss, dist_entropy, dynamics_loss = self.update_(self.rollouts, next_value, current_tstep)
         
         self.rollouts.after_update()
+
+    def save_w(self):
+        torch.save(self.policy_value_net.state_dict(), os.path.join(self.log_dir, 'saved_model', 'model.dump'))
+        torch.save(self.optimizer.state_dict(), os.path.join(self.log_dir, 'saved_model', 'optim.dump'))
+    
+    def load_w(self):
+        fname_model = os.path.join(self.log_dir, 'saved_model', 'model.dump')
+        fname_optim = os.path.join(self.log_dir, 'saved_model', 'optim.dump')
+
+        if os.path.isfile(fname_model):
+            self.policy_value_net.load_state_dict(torch.load(fname_model))
+
+        if os.path.isfile(fname_optim):
+            self.optimizer.load_state_dict(torch.load(fname_optim))
