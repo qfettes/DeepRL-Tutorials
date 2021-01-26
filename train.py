@@ -40,6 +40,8 @@ parser.add_argument('--save-threshold', type=int, default=2500,
 					help='save nn params every save-threshold timesteps (default: 1000)')
 parser.add_argument('--render', action='store_true', default=False,
                     help='Render the inference epsiode (default: False')
+parser.add_argument('--logdir', default='./results/train/',
+					help='algorithm to use (default: ./results/train)')
 
 # Preprocessing
 parser.add_argument('--stack-frames', type=int, default=4,
@@ -173,7 +175,7 @@ parser.add_argument('--disable-ppo-clip-schedule', action='store_false', default
 
 def train(config, Agent, ipynb=False):
     #make/clear directories for logging
-    base_dir = os.path.join('./results/', config.algo, config.env_id)
+    base_dir = os.path.join(config.logdir, config.algo, config.env_id)
     log_dir = os.path.join(base_dir, 'logs/')   
     model_dir = os.path.join(base_dir, 'saved_model/')
     tb_dir = os.path.join(base_dir, 'runs/')
@@ -295,6 +297,7 @@ if __name__=='__main__':
     config.print_threshold = int(args.print_threshold)
     config.save_threshold  = int(args.save_threshold)
     config.render          = args.render
+    config.logdir          = args.logdir
 
     # preprocessing
     config.stack_frames    = int(args.stack_frames)

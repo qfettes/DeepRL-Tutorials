@@ -11,5 +11,6 @@ __pycache__/
 #linting
 .mypy_cache/
 
-#
-results/
+# results
+results/train/
+runs/

@@ -325,7 +325,8 @@ class Agent(BaseAgent):
         epsilon = self.anneal_eps(current_tstep)
         self.tb_writer.add_scalar('Policy/Epsilon', epsilon, current_tstep)
 
-        X = torch.from_numpy(self.observations).to(self.config.device).to(torch.float).view((-1,)+self.num_feats)
+        # TODO: modifying step in the next line is incosistent with prior code style
+        X = torch.from_numpy(self.observations).to(self.config.device).to(torch.float).view((-1,)+self.num_feats) / 255.0
         self.actions, _, _ = self.get_action(X, states=None, masks=None, deterministic=False)
         self.actions = self.actions.view(-1).cpu().numpy()
 
