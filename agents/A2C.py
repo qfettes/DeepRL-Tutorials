@@ -1,41 +1,42 @@
-import numpy as np
-
 import os
+from collections import deque
 
+import numpy as np
 import torch
-import torch.optim as optim
-import torch.nn as nn
 import torch.nn.functional as F
-
-from agents.BaseAgent import BaseAgent
+import torch.optim as optim
 from networks.networks import ActorCritic
 from utils.RolloutStorage import RolloutStorage
 
-from collections import deque
+from agents.BaseAgent import BaseAgent
+
 
 class Agent(BaseAgent):
     def __init__(self, env=None, config=None, log_dir='/tmp/gym', tb_writer=None):
-        super(Agent, self).__init__(env=env, config=config, log_dir=log_dir, tb_writer=tb_writer)
+        super(Agent, self).__init__(env=env, config=config,
+                                    log_dir=log_dir, tb_writer=tb_writer)
         self.config = config
         self.num_feats = env.observation_space.shape
 
         self.continousActionSpace = False
         if env.action_space.__class__.__name__ == 'Discrete':
-            self.action_space = env.action_space.n * len(config.adaptive_repeat)
+            self.action_space = env.action_space.n * \
+                len(config.adaptive_repeat)
         elif env.action_space.__class__.__name__ == 'Box':
             self.action_space = env.action_space
             self.continousActionSpace = True
         else:
             print('[ERROR] Unrecognized Action Space Type')
             exit()
-        
+
         self.envs = env
 
         self.declare_networks()
 
-        self.optimizer = optim.RMSprop(self.policy_value_net.parameters(), lr=self.config.lr, alpha=self.config.rms_alpha, eps=self.config.rms_eps)   
-        
-        #move to correct device
+        self.optimizer = optim.RMSprop(self.policy_value_net.parameters(
+        ), lr=self.config.lr, alpha=self.config.rms_alpha, eps=self.config.rms_eps)
+
+        # move to correct device
         self.policy_value_net = self.policy_value_net.to(self.config.device)
 
         if self.config.inference:
@@ -43,29 +44,30 @@ class Agent(BaseAgent):
         else:
             self.policy_value_net.train()
 
-        self.rollouts = RolloutStorage(self.config.update_freq , self.config.num_envs,
-            self.num_feats, self.envs.action_space, self.policy_value_net.state_size,
-            self.config.device, config.use_gae, config.gae_tau, config.correct_time_limits)
+        self.rollouts = RolloutStorage(self.config.update_freq, self.config.num_envs,
+                                       self.num_feats, self.envs.action_space, self.policy_value_net.state_size,
+                                       self.config.device, config.use_gae, config.gae_tau, config.correct_time_limits)
 
         self.value_losses = []
         self.entropy_losses = []
         self.policy_losses = []
-        
+
         self.first_action = True
 
         self.training_priors()
 
-
     def declare_networks(self):
-        self.policy_value_net = ActorCritic(self.num_feats, self.action_space, body_out=self.config.body_out, use_gru=self.config.policy_gradient_recurrent_policy, gru_size=self.config.gru_size, noisy_nets=self.config.noisy_nets, sigma_init=self.config.sigma_init)
+        self.policy_value_net = ActorCritic(self.num_feats, self.action_space, body_out=self.config.body_out, use_gru=self.config.policy_gradient_recurrent_policy,
+                                            gru_size=self.config.gru_size, noisy_nets=self.config.noisy_nets, sigma_init=self.config.sigma_init)
 
     def training_priors(self):
         self.obs = self.envs.reset()
-    
-        obs = torch.from_numpy(self.obs.astype(np.float32)).to(self.config.device)
+
+        obs = torch.from_numpy(self.obs.astype(
+            np.float32)).to(self.config.device)
 
         self.rollouts.observations[0].copy_(obs)
-        
+
         self.episode_rewards = np.zeros(self.config.num_envs, dtype=np.float)
         self.final_rewards = np.zeros(self.config.num_envs, dtype=np.float)
         self.last_100_rewards = deque(maxlen=100)
@@ -76,9 +78,10 @@ class Agent(BaseAgent):
 
         logits, values, states = self.policy_value_net(s, states, masks)
 
-        #TODO: clean this up
+        # TODO: clean this up
         if self.continousActionSpace:
-            dist = torch.distributions.Normal(logits, F.softplus(self.policy_value_net.logstd))
+            dist = torch.distributions.Normal(
+                logits, F.softplus(self.policy_value_net.logstd))
             actions = dist.sample()
             action_log_probs = dist.log_prob(actions).sum(-1, keepdim=True)
         else:
@@ -97,9 +100,10 @@ class Agent(BaseAgent):
     def evaluate_actions(self, s, actions, states, masks):
         logits, values, states = self.policy_value_net(s, states, masks)
 
-        #TODO: clean this up
+        # TODO: clean this up
         if self.continousActionSpace:
-            dist = torch.distributions.Normal(logits, F.softplus(self.policy_value_net.logstd))
+            dist = torch.distributions.Normal(
+                logits, F.softplus(self.policy_value_net.logstd))
             action_log_probs = dist.log_prob(actions).sum(-1, keepdim=True)
             dist_entropy = dist.entropy().sum(1).mean()
         else:
@@ -142,24 +146,29 @@ class Agent(BaseAgent):
         loss -= self.config.entropy_coef * dist_entropy
 
         self.tb_writer.add_scalar('Loss/Total Loss', loss.item(), tstep)
-        self.tb_writer.add_scalar('Loss/Policy Loss', action_loss.item(), tstep)
+        self.tb_writer.add_scalar(
+            'Loss/Policy Loss', action_loss.item(), tstep)
         self.tb_writer.add_scalar('Loss/Value Loss', value_loss.item(), tstep)
         self.tb_writer.add_scalar('Loss/Forward Dynamics Loss', 0., tstep)
         self.tb_writer.add_scalar('Loss/Inverse Dynamics Loss', 0., tstep)
 
         self.tb_writer.add_scalar('Policy/Entropy', dist_entropy.item(), tstep)
-        self.tb_writer.add_scalar('Policy/Value Estimate', values.detach().mean().item(), tstep)
+        self.tb_writer.add_scalar(
+            'Policy/Value Estimate', values.detach().mean().item(), tstep)
 
-        self.tb_writer.add_scalar('Learning/Learning Rate', np.mean([param_group['lr'] for param_group in self.optimizer.param_groups]), tstep)
+        self.tb_writer.add_scalar('Learning/Learning Rate', np.mean(
+            [param_group['lr'] for param_group in self.optimizer.param_groups]), tstep)
 
         return loss, action_loss, value_loss, dist_entropy, 0.
 
     def update_(self, rollout, next_value, tstep):
-        loss, action_loss, value_loss, dist_entropy, dynamics_loss = self.compute_loss(rollout, next_value, tstep)
+        loss, action_loss, value_loss, dist_entropy, dynamics_loss = self.compute_loss(
+            rollout, next_value, tstep)
 
         self.optimizer.zero_grad()
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.policy_value_net.parameters(), self.config.grad_norm_max)
+        torch.nn.utils.clip_grad_norm_(
+            self.policy_value_net.parameters(), self.config.grad_norm_max)
         self.optimizer.step()
 
         with torch.no_grad():
@@ -180,22 +189,24 @@ class Agent(BaseAgent):
                         sigma_norm += param_norm.item() ** 2
                 sigma_norm = sigma_norm ** (1./2.)
 
-                self.tb_writer.add_scalar('Policy/Sigma Norm', sigma_norm, tstep)
+                self.tb_writer.add_scalar(
+                    'Policy/Sigma Norm', sigma_norm, tstep)
 
         return value_loss.item(), action_loss.item(), dist_entropy.item(), dynamics_loss
 
     def add_graph(self, inp, states, masks):
         with torch.no_grad():
-            self.tb_writer.add_graph(self.policy_value_net, (inp, states, masks))
+            self.tb_writer.add_graph(
+                self.policy_value_net, (inp, states, masks))
             self.first_action = False
-    
+
     def step(self, current_timestep, step=0):
         with torch.no_grad():
             values, actions, action_log_prob, states = self.get_action(
-                                                        self.rollouts.observations[step],
-                                                        self.rollouts.states[step],
-                                                        self.rollouts.masks[step])
-    
+                self.rollouts.observations[step],
+                self.rollouts.states[step],
+                self.rollouts.masks[step])
+
         cpu_actions = actions.cpu().numpy()
         if not self.continousActionSpace:
             cpu_actions = cpu_actions.reshape(-1)
@@ -204,7 +215,7 @@ class Agent(BaseAgent):
 
         obs = torch.from_numpy(obs.astype(np.float32)).to(self.config.device)
 
-        #agent rewards
+        # agent rewards
         self.episode_rewards += reward
         masks = 1. - done.astype(np.float32)
         self.final_rewards *= masks
@@ -215,39 +226,48 @@ class Agent(BaseAgent):
         for idx, inf in enumerate(info):
             if 'episode' in inf.keys():
                 self.last_100_rewards.append(inf['episode']['r'])
-                self.tb_writer.add_scalar('Performance/Environment Reward', inf['episode']['r'], current_timestep+idx)
-                self.tb_writer.add_scalar('Performance/Episode Length', inf['episode']['l'], current_timestep+idx)
+                self.tb_writer.add_scalar(
+                    'Performance/Environment Reward', inf['episode']['r'], current_timestep+idx)
+                self.tb_writer.add_scalar(
+                    'Performance/Episode Length', inf['episode']['l'], current_timestep+idx)
 
             if done[idx]:
-                #write reward on completion
-                self.tb_writer.add_scalar('Performance/Agent Reward', self.final_rewards[idx], current_timestep+idx)
+                # write reward on completion
+                self.tb_writer.add_scalar(
+                    'Performance/Agent Reward', self.final_rewards[idx], current_timestep+idx)
 
             if 'bad_transition' in inf.keys():
                 bad_masks.append([0.0])
             else:
                 bad_masks.append([1.0])
 
-        rewards = torch.from_numpy(reward.astype(np.float32)).view(-1, 1).to(self.config.device)
+        rewards = torch.from_numpy(reward.astype(
+            np.float32)).view(-1, 1).to(self.config.device)
         masks = torch.from_numpy(masks).to(self.config.device).view(-1, 1)
-        bad_masks = torch.tensor(bad_masks, dtype=torch.float, device=self.config.device)
+        bad_masks = torch.tensor(
+            bad_masks, dtype=torch.float, device=self.config.device)
 
-        self.rollouts.insert(obs, states, actions, action_log_prob, values, rewards, masks, bad_masks)
+        self.rollouts.insert(obs, states, actions,
+                             action_log_prob, values, rewards, masks, bad_masks)
 
     def update(self, current_tstep):
         with torch.no_grad():
             next_value = self.get_values(self.rollouts.observations[-1],
-                                self.rollouts.states[-1],
-                                self.rollouts.masks[-1])
-        
+                                         self.rollouts.states[-1],
+                                         self.rollouts.masks[-1])
+
         if current_tstep >= self.config.learn_start:
-            value_loss, action_loss, dist_entropy, dynamics_loss = self.update_(self.rollouts, next_value, current_tstep)
-        
+            value_loss, action_loss, dist_entropy, dynamics_loss = self.update_(
+                self.rollouts, next_value, current_tstep)
+
         self.rollouts.after_update()
 
     def save_w(self):
-        torch.save(self.policy_value_net.state_dict(), os.path.join(self.log_dir, 'saved_model', 'model.dump'))
-        torch.save(self.optimizer.state_dict(), os.path.join(self.log_dir, 'saved_model', 'optim.dump'))
-    
+        torch.save(self.policy_value_net.state_dict(), os.path.join(
+            self.log_dir, 'saved_model', 'model.dump'))
+        torch.save(self.optimizer.state_dict(), os.path.join(
+            self.log_dir, 'saved_model', 'optim.dump'))
+
     def load_w(self):
         fname_model = os.path.join(self.log_dir, 'saved_model', 'model.dump')
         fname_optim = os.path.join(self.log_dir, 'saved_model', 'optim.dump')

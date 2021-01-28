@@ -1,10 +1,10 @@
+from utils.data_structures import MinSegmentTree, SegmentTree, SumSegmentTree
 import random
+
 import numpy as np
 import torch
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-from utils.data_structures import SegmentTree, MinSegmentTree, SumSegmentTree
-
 
 # class ExperienceReplayMemory:
 #     def __init__(self, capacity):
@@ -23,6 +23,8 @@ from utils.data_structures import SegmentTree, MinSegmentTree, SumSegmentTree
 #         return len(self.memory)
 
 # NOTE: This is the OpenAI Baselines Implementation of Experience Replay
+
+
 class ExperienceReplayMemory(object):
     def __init__(self, size):
         """Create Replay buffer.
@@ -40,9 +42,9 @@ class ExperienceReplayMemory(object):
     def __len__(self):
         return len(self._storage)
 
-
     # def add(self, obs_t, action, reward, obs_tp1, done):
     #     data = (obs_t, action, reward, obs_tp1, done)
+
     def push(self, data):
         if self._next_idx >= len(self._storage):
             self._storage.append(data)
@@ -60,14 +62,16 @@ class ExperienceReplayMemory(object):
             rewards.append(reward)
             obses_tp1.append(obs_tp1)
 
-        non_final_mask = np.array(tuple(map(lambda s: s is not None, obses_tp1))).astype(bool)
+        non_final_mask = np.array(
+            tuple(map(lambda s: s is not None, obses_tp1))).astype(bool)
         try:
-            non_final_next_states = np.array([s for s in obses_tp1 if s is not None], dtype=int)
+            non_final_next_states = np.array(
+                [s for s in obses_tp1 if s is not None], dtype=int)
             empty_next_state_values = False
         except:
             non_final_next_states = None
             empty_next_state_values = True
-        
+
         return (np.array(obses_t), np.array(actions), np.array(rewards), non_final_next_states, non_final_mask, empty_next_state_values), None, None
 
     def sample(self, batch_size, tstep=1):
@@ -92,7 +96,8 @@ class ExperienceReplayMemory(object):
             done_mask[i] = 1 if executing act_batch[i] resulted in
             the end of an episode and 0 otherwise.
         """
-        idxes = [random.randint(0, len(self._storage) - 1) for _ in range(batch_size)]
+        idxes = [random.randint(0, len(self._storage) - 1)
+                 for _ in range(batch_size)]
         return self._encode_sample(idxes)
 
 
@@ -143,7 +148,6 @@ class PrioritizedReplayMemory(object):
             self._storage[self._next_idx] = data
         self._next_idx = (self._next_idx + 1) % self._maxsize
 
-
         self._it_sum[idx] = self._max_priority ** self._alpha
         self._it_min[idx] = self._max_priority ** self._alpha
 
@@ -157,14 +161,16 @@ class PrioritizedReplayMemory(object):
             rewards.append(reward)
             obses_tp1.append(obs_tp1)
 
-        non_final_mask = np.array(tuple(map(lambda s: s is not None, obses_tp1))).astype(bool)
+        non_final_mask = np.array(
+            tuple(map(lambda s: s is not None, obses_tp1))).astype(bool)
         try:
-            non_final_next_states = np.array([s for s in obses_tp1 if s is not None], dtype=int)
+            non_final_next_states = np.array(
+                [s for s in obses_tp1 if s is not None], dtype=int)
             empty_next_state_values = False
         except:
             non_final_next_states = None
             empty_next_state_values = True
-        
+
         return np.array(obses_t), np.array(actions), np.array(rewards), non_final_next_states, non_final_mask, empty_next_state_values
 
     def _sample_proportional(self, batch_size):
@@ -213,21 +219,21 @@ class PrioritizedReplayMemory(object):
 
         weights = []
 
-        #find smallest sampling prob: p_min = smallest priority^alpha / sum of priorities^alpha
+        # find smallest sampling prob: p_min = smallest priority^alpha / sum of priorities^alpha
         p_min = self._it_min.min() / self._it_sum.sum()
 
         beta = self.beta_by_step(tstep)
-        
-        #max_weight given to smallest prob
+
+        # max_weight given to smallest prob
         max_weight = (p_min * len(self._storage)) ** (-beta)
 
         for idx in idxes:
             p_sample = self._it_sum[idx] / self._it_sum.sum()
             weight = (p_sample * len(self._storage)) ** (-beta)
             weights.append(weight / max_weight)
-        
+
         encoded_sample = self._encode_sample(idxes)
-        
+
         return encoded_sample, idxes, np.array(weights, copy=False)
 
     def update_priorities(self, idxes, priorities):
@@ -256,7 +262,7 @@ class RecurrentExperienceReplayMemory:
     def __init__(self, capacity, sequence_length=10):
         self.capacity = capacity
         self.memory = []
-        self.seq_length=sequence_length
+        self.seq_length = sequence_length
 
     def push(self, transition):
         self.memory.append(transition)
@@ -268,22 +274,23 @@ class RecurrentExperienceReplayMemory:
         begin = [x-self.seq_length for x in finish]
         samp = []
         for start, end in zip(begin, finish):
-            #correct for sampling near beginning
-            final = self.memory[max(start+1,0):end+1]
-            
-            #correct for sampling across episodes
+            # correct for sampling near beginning
+            final = self.memory[max(start+1, 0):end+1]
+
+            # correct for sampling across episodes
             for i in range(len(final)-2, -1, -1):
                 if final[i][3] is None:
                     final = final[i+1:]
                     break
-                    
-            #pad beginning to account for corrections
-            while(len(final)<self.seq_length):
-                final = [(np.zeros_like(self.memory[0][0]), 0, 0, np.zeros_like(self.memory[0][3]))] + final
-                            
-            samp+=final
 
-        #returns flattened version
+            # pad beginning to account for corrections
+            while(len(final) < self.seq_length):
+                final = [(np.zeros_like(self.memory[0][0]), 0, 0,
+                          np.zeros_like(self.memory[0][3]))] + final
+
+            samp += final
+
+        # returns flattened version
         return samp, None, None
 
     def __len__(self):
@@ -348,4 +355,3 @@ class RecurrentExperienceReplayMemory:
 
     def __len__(self):
         return len(self.buffer)'''
-

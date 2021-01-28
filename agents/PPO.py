@@ -1,43 +1,49 @@
 import numpy as np
-
 import torch
-import torch.optim as optim
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.optim as optim
+from utils import LinearSchedule
 
 from agents.A2C import Agent as A2C
 
-from utils import LinearSchedule
 
 class Agent(A2C):
     def __init__(self, env=None, config=None, log_dir='/tmp/gym', tb_writer=None):
-        super(Agent, self).__init__(env=env, config=config, log_dir=log_dir, tb_writer=tb_writer)
+        super(Agent, self).__init__(env=env, config=config,
+                                    log_dir=log_dir, tb_writer=tb_writer)
 
-        self.optimizer = optim.Adam(self.policy_value_net.parameters(), lr=self.config.lr, eps=self.config.adam_eps)
-        
+        self.optimizer = optim.Adam(self.policy_value_net.parameters(
+        ), lr=self.config.lr, eps=self.config.adam_eps)
+
         if self.config.anneal_ppo_clip:
-            self.anneal_clip_param_fun = LinearSchedule(self.config.ppo_clip_param, 0.0, 1.0, config.max_tsteps)
+            self.anneal_clip_param_fun = LinearSchedule(
+                self.config.ppo_clip_param, 0.0, 1.0, config.max_tsteps)
         else:
-            self.anneal_clip_param_fun = LinearSchedule(self.config.ppo_clip_param, None, 1.0, config.max_tsteps)
+            self.anneal_clip_param_fun = LinearSchedule(
+                self.config.ppo_clip_param, None, 1.0, config.max_tsteps)
 
     def compute_loss(self, sample, next_value, clip_param):
         observations_batch, states_batch, actions_batch, value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, adv_targ = sample
 
         values, action_log_probs, dist_entropy, states = self.evaluate_actions(observations_batch,
-                                                            actions_batch,
-                                                            states_batch,
-                                                            masks_batch)
+                                                                               actions_batch,
+                                                                               states_batch,
+                                                                               masks_batch)
 
         ratio = torch.exp(action_log_probs - old_action_log_probs_batch)
         surr1 = ratio * adv_targ
-        surr2 = torch.clamp(ratio, 1.0 - clip_param, 1.0 + clip_param) * adv_targ
+        surr2 = torch.clamp(ratio, 1.0 - clip_param,
+                            1.0 + clip_param) * adv_targ
         action_loss = -torch.min(surr1, surr2).mean()
 
         if self.config.use_ppo_vf_clip:
-            value_pred_clipped = value_preds_batch + (values - value_preds_batch).clamp(-clip_param, clip_param)
+            value_pred_clipped = value_preds_batch + \
+                (values - value_preds_batch).clamp(-clip_param, clip_param)
             value_losses = (values - return_batch).pow(2)
             value_losses_clipped = (value_pred_clipped - return_batch).pow(2)
-            value_loss = torch.max(value_losses, value_losses_clipped).mul(0.5).mean()
+            value_loss = torch.max(
+                value_losses, value_losses_clipped).mul(0.5).mean()
         else:
             value_loss = (return_batch - values).pow(2).mul(0.5).mean()
 
@@ -70,13 +76,14 @@ class Agent(A2C):
                 data_generator = rollout.feed_forward_generator(
                     advantages, self.config.ppo_mini_batch)
 
-
             for sample in data_generator:
-                loss, action_loss, value_loss, dist_entropy = self.compute_loss(sample, next_value, clip_param)
+                loss, action_loss, value_loss, dist_entropy = self.compute_loss(
+                    sample, next_value, clip_param)
 
                 self.optimizer.zero_grad()
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.policy_value_net.parameters(), self.config.grad_norm_max)
+                torch.nn.utils.clip_grad_norm_(
+                    self.policy_value_net.parameters(), self.config.grad_norm_max)
                 self.optimizer.step()
 
                 with torch.no_grad():
@@ -99,10 +106,13 @@ class Agent(A2C):
                 value_loss_epoch += value_loss.item()
                 action_loss_epoch += action_loss.item()
                 dist_entropy_epoch += dist_entropy.item()
-        
-        value_loss_epoch /= (self.config.ppo_epoch * self.config.ppo_mini_batch)
-        action_loss_epoch /= (self.config.ppo_epoch * self.config.ppo_mini_batch)
-        dist_entropy_epoch /= (self.config.ppo_epoch * self.config.ppo_mini_batch)
+
+        value_loss_epoch /= (self.config.ppo_epoch *
+                             self.config.ppo_mini_batch)
+        action_loss_epoch /= (self.config.ppo_epoch *
+                              self.config.ppo_mini_batch)
+        dist_entropy_epoch /= (self.config.ppo_epoch *
+                               self.config.ppo_mini_batch)
         total_loss = value_loss_epoch + action_loss_epoch + dist_entropy_epoch
 
         self.tb_writer.add_scalar('Loss/Total Loss', total_loss, tstep)
@@ -113,8 +123,11 @@ class Agent(A2C):
         self.tb_writer.add_scalar('Policy/Entropy', dist_entropy_epoch, tstep)
         self.tb_writer.add_scalar('Policy/Value Estimate', 0, tstep)
         if all_sigma_norms:
-            self.tb_writer.add_scalar('Policy/Sigma Norm', np.mean(all_sigma_norms), tstep)
-        self.tb_writer.add_scalar('Learning/Learning Rate', np.mean([param_group['lr'] for param_group in self.optimizer.param_groups]), tstep)
-        self.tb_writer.add_scalar('Learning/Grad Norm', np.mean(all_grad_norms), tstep)
+            self.tb_writer.add_scalar(
+                'Policy/Sigma Norm', np.mean(all_sigma_norms), tstep)
+        self.tb_writer.add_scalar('Learning/Learning Rate', np.mean(
+            [param_group['lr'] for param_group in self.optimizer.param_groups]), tstep)
+        self.tb_writer.add_scalar(
+            'Learning/Grad Norm', np.mean(all_grad_norms), tstep)
 
         return value_loss_epoch, action_loss_epoch, dist_entropy_epoch, 0.

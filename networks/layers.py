@@ -1,7 +1,9 @@
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import math
+
 
 # Factorised NoisyLinear layer with bias
 class NoisyLinear(nn.Module):
@@ -12,7 +14,8 @@ class NoisyLinear(nn.Module):
         self.std_init = std_init
         self.factorised_noise = factorised_noise
         self.weight_mu = nn.Parameter(torch.empty(out_features, in_features))
-        self.weight_sigma = nn.Parameter(torch.empty(out_features, in_features))
+        self.weight_sigma = nn.Parameter(
+            torch.empty(out_features, in_features))
         # self.register_buffer('weight_epsilon', torch.empty(out_features, in_features))
         self.bias_mu = nn.Parameter(torch.empty(out_features))
         self.bias_sigma = nn.Parameter(torch.empty(out_features))
@@ -23,9 +26,11 @@ class NoisyLinear(nn.Module):
     def reset_parameters(self):
         mu_range = 1.0 / math.sqrt(self.in_features)
         self.weight_mu.data.uniform_(-mu_range, mu_range)
-        self.weight_sigma.data.fill_(self.std_init / math.sqrt(self.in_features))
+        self.weight_sigma.data.fill_(
+            self.std_init / math.sqrt(self.in_features))
         self.bias_mu.data.uniform_(-mu_range, mu_range)
-        self.bias_sigma.data.fill_(self.std_init / math.sqrt(self.out_features))
+        self.bias_sigma.data.fill_(
+            self.std_init / math.sqrt(self.out_features))
 
     def _scale_noise(self, size):
         x = torch.randn(size, device=self.weight_sigma.device)
@@ -42,8 +47,10 @@ class NoisyLinear(nn.Module):
         else:
             # self.weight_epsilon.copy_(torch.randn((self.out_features, self.in_features)))
             # self.bias_epsilon.copy_(torch.randn(self.out_features))
-            self.weight_epsilon = torch.randn((self.out_features, self.in_features), device=self.weight_sigma.device)
-            self.bias_epsilon = torch.randn(self.out_features, device=self.weight_sigma.device)
+            self.weight_epsilon = torch.randn(
+                (self.out_features, self.in_features), device=self.weight_sigma.device)
+            self.bias_epsilon = torch.randn(
+                self.out_features, device=self.weight_sigma.device)
 
     def forward(self, inp):
         if self.training:

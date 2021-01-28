@@ -1,23 +1,25 @@
-#TODO: include wrapper to log original returns
+# TODO: include wrapper to log original returns
 
 import os
-import numpy as np
 from collections import deque
-import torch
 
 import gym
-from gym import spaces
-from gym import wrappers
-from gym.spaces.box import Box
-
+import numpy as np
+import torch
 from baselines import bench
-from baselines.common.atari_wrappers import NoopResetEnv, TimeLimit, make_atari, wrap_deepmind
-from baselines.common.atari_wrappers import EpisodicLifeEnv, FireResetEnv, WarpFrame, ScaledFloatFrame, ClipRewardEnv, FrameStack
-
-from baselines.common.vec_env.vec_normalize import VecNormalize as VecNormalize_
+from baselines.common.atari_wrappers import (ClipRewardEnv, EpisodicLifeEnv,
+                                             FireResetEnv, FrameStack,
+                                             NoopResetEnv, ScaledFloatFrame,
+                                             TimeLimit, WarpFrame, make_atari,
+                                             wrap_deepmind)
+from baselines.common.vec_env import VecEnvWrapper
 from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
 from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
-from baselines.common.vec_env import VecEnvWrapper
+from baselines.common.vec_env.vec_normalize import \
+    VecNormalize as VecNormalize_
+from gym import spaces, wrappers
+from gym.spaces.box import Box
+
 
 class MaxAndSkipEnv_custom(gym.Wrapper):
     def __init__(self, env, skip=[4], sticky_actions=0.0):
@@ -27,8 +29,9 @@ class MaxAndSkipEnv_custom(gym.Wrapper):
         """
         gym.Wrapper.__init__(self, env)
         # most recent raw observations (for max pooling across time steps)
-        self._obs_buffer = np.zeros((2,)+env.observation_space.shape, dtype=np.uint8)
-        self._skip       = skip
+        self._obs_buffer = np.zeros(
+            (2,)+env.observation_space.shape, dtype=np.uint8)
+        self._skip = skip
 
         self.num_actions = env.action_space.n
         self.sticky = sticky_actions
@@ -47,8 +50,10 @@ class MaxAndSkipEnv_custom(gym.Wrapper):
                 self.prev_action = action
 
             obs, reward, done, info = self.env.step(self.prev_action)
-            if i == self._skip[repeat_len] - 2: self._obs_buffer[0] = obs
-            if i == self._skip[repeat_len] - 1: self._obs_buffer[1] = obs
+            if i == self._skip[repeat_len] - 2:
+                self._obs_buffer[0] = obs
+            if i == self._skip[repeat_len] - 1:
+                self._obs_buffer[1] = obs
             total_reward += reward
             if done:
                 break
@@ -61,6 +66,7 @@ class MaxAndSkipEnv_custom(gym.Wrapper):
     def reset(self, **kwargs):
         return self.env.reset(**kwargs)
 
+
 def make_atari_custom(env_id, max_episode_steps=None, skip=[4], sticky_actions=0.0):
     env = gym.make(env_id)
     assert 'NoFrameskip' in env.spec.id
@@ -69,6 +75,7 @@ def make_atari_custom(env_id, max_episode_steps=None, skip=[4], sticky_actions=0
     if max_episode_steps is not None:
         env = TimeLimit(env, max_episode_steps=max_episode_steps)
     return env
+
 
 def wrap_deepmind_custom(env, episode_life=True, clip_rewards=True, frame_stack=4, scale=False):
     """
@@ -84,9 +91,10 @@ def wrap_deepmind_custom(env, episode_life=True, clip_rewards=True, frame_stack=
         env = ScaledFloatFrame(env)
     if clip_rewards:
         env = ClipRewardEnv(env)
-    if frame_stack>1:
+    if frame_stack > 1:
         env = FrameStack(env, frame_stack)
     return env
+
 
 class WrapPyTorch(gym.ObservationWrapper):
     def __init__(self, env=None):
@@ -99,7 +107,7 @@ class WrapPyTorch(gym.ObservationWrapper):
             dtype=self.observation_space.dtype)
 
     def observation(self, observation):
-        #return observation.transpose(2, 0, 1)
+        # return observation.transpose(2, 0, 1)
         return np.array(observation).transpose(2, 0, 1)
 
 
@@ -111,18 +119,22 @@ def make_envs_general(env_id, seed, log_dir, num_envs, gamma, stack_frames=4, ad
     if atari:
         return make_all_atari(env_id, seed, log_dir, num_envs, stack_frames, adaptive_repeat, sticky_actions, clip_rewards)
     else:
-        return make_mujoco(env_id, seed, log_dir, num_envs, gamma)
+        return make_pybullet(env_id, seed, log_dir, num_envs, gamma)
+
 
 def make_all_atari(env_id, seed, log_dir, num_envs, stack_frames=4, adaptive_repeat=[4], sticky_actions=0.0, clip_rewards=True):
-    envs = [make_env_atari(env_id, seed, i, log_dir, stack_frames=stack_frames, adaptive_repeat=adaptive_repeat, sticky_actions=sticky_actions, clip_rewards=True) for i in range(num_envs)]
+    envs = [make_env_atari(env_id, seed, i, log_dir, stack_frames=stack_frames, adaptive_repeat=adaptive_repeat,
+                           sticky_actions=sticky_actions, clip_rewards=True) for i in range(num_envs)]
     envs = DummyVecEnv(envs) if len(envs) == 1 else SubprocVecEnv(envs)
 
     return envs
 
+
 def make_env_atari(env_id, seed, rank, log_dir, stack_frames=4, adaptive_repeat=[4], sticky_actions=0.0, clip_rewards=True):
-    def _thunk():        
-        env = make_atari_custom(env_id, max_episode_steps=None, skip=adaptive_repeat, sticky_actions=sticky_actions)
-        
+    def _thunk():
+        env = make_atari_custom(env_id, max_episode_steps=None,
+                                skip=adaptive_repeat, sticky_actions=sticky_actions)
+
         if seed:
             env.seed(seed + rank)
         else:
@@ -131,15 +143,17 @@ def make_env_atari(env_id, seed, rank, log_dir, stack_frames=4, adaptive_repeat=
         if log_dir is not None:
             env = bench.Monitor(env, os.path.join(log_dir, str(rank)))
 
-        env = wrap_deepmind_custom(env, episode_life=True, clip_rewards=clip_rewards, frame_stack=stack_frames, scale=False)
+        env = wrap_deepmind_custom(
+            env, episode_life=True, clip_rewards=clip_rewards, frame_stack=stack_frames, scale=False)
         env = WrapPyTorch(env)
 
         return env
     return _thunk
 
 
-def make_mujoco(env_id, seed, log_dir, num_envs, gamma):
-    envs = [make_env_continuous(env_id, seed, i, log_dir) for i in range(num_envs)]
+def make_pybullet(env_id, seed, log_dir, num_envs, gamma):
+    envs = [make_env_continuous(env_id, seed, i, log_dir)
+            for i in range(num_envs)]
     envs = DummyVecEnv(envs) if len(envs) == 1 else SubprocVecEnv(envs)
 
     if len(envs.observation_space.shape) == 1:
@@ -157,10 +171,11 @@ def make_mujoco(env_id, seed, log_dir, num_envs, gamma):
 
     return envs
 
+
 def make_env_continuous(env_id, seed, rank, log_dir):
-    def _thunk():        
+    def _thunk():
         env = gym.make(env_id)
-        
+
         if seed:
             env.seed(seed + rank)
         else:
@@ -176,6 +191,8 @@ def make_env_continuous(env_id, seed, rank, log_dir):
     return _thunk
 
 # https://github.com/ikostrikov/pytorch-a2c-ppo-acktr-gail
+
+
 class VecNormalize(VecNormalize_):
     def __init__(self, *args, **kwargs):
         super(VecNormalize, self).__init__(*args, **kwargs)
@@ -200,6 +217,8 @@ class VecNormalize(VecNormalize_):
 
 # https://github.com/ikostrikov/pytorch-a2c-ppo-acktr-gail
 # Checks whether done was caused my timit limits or not
+
+
 class TimeLimitMask(gym.Wrapper):
     def step(self, action):
         obs, rew, done, info = self.env.step(action)

@@ -94,7 +94,9 @@ python train.py --env-name Reacher-v2 --algo ppo --print-threshold 1 --save-thre
 
 ### Soft Actor-Critic
 ```
-python train.py --algo sac --lr 0.001 --entropy-coef 0.02 --batch-size 100 --learn-start 10000 --update-freq 50
+python train.py --algo sac --lr 0.001 --entropy-coef 0.02 --batch-size 100 --learn-start 10000 --update-freq 50 --entropy-tuning
+python train.py --algo sac --lr 2.5e-4 --entropy-coef 0.2 --batch-size 32 --learn-start 80000 --update-freq 4 --entropy-tuning --max-grad-norm 0.5
+python train.py --algo sac --env-name HalfCheetahBulletEnv-v0 --lr 3e-4 --gamma 0.99 --replay-size 1e6 
 ```
     
 ## Requirements: 
@@ -104,7 +106,6 @@ python train.py --algo sac --lr 0.001 --entropy-coef 0.02 --batch-size 100 --lea
 * matplotlib
 * Gym 
 * Pytorch>=1.3.0
-* Matplotlib 
 * OpenCV 
 * Baselines
 * tensorboard

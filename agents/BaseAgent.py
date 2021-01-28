@@ -1,21 +1,21 @@
-import numpy as np
-import pickle
-import os.path
 import csv
+import os.path
+import pickle
 
+import numpy as np
 import torch
 import torch.optim as optim
 
 
 class BaseAgent(object):
     def __init__(self, env, config, log_dir='/tmp/gym', tb_writer=None):
-        self.q_net=None
-        self.target_q_net=None
+        self.q_net = None
+        self.target_q_net = None
         self.optimizer = None
 
         self.log_dir = log_dir
-        self.tb_writer=tb_writer
-        
+        self.tb_writer = tb_writer
+
         # # upload hparms to tensorboard
         # log_config = config.__dict__.copy()
         # tmp_device = log_config['device']
@@ -34,9 +34,11 @@ class BaseAgent(object):
         # self.action_selections = [0 for _ in range(env.action_space.n)]
 
     def save_w(self):
-        torch.save(self.q_net.state_dict(), os.path.join(self.log_dir, 'saved_model', 'model.dump'))
-        torch.save(self.optimizer.state_dict(), os.path.join(self.log_dir, 'saved_model', 'optim.dump'))
-    
+        torch.save(self.q_net.state_dict(), os.path.join(
+            self.log_dir, 'saved_model', 'model.dump'))
+        torch.save(self.optimizer.state_dict(), os.path.join(
+            self.log_dir, 'saved_model', 'optim.dump'))
+
     def load_w(self):
         fname_model = os.path.join(self.log_dir, 'saved_model', 'model.dump')
         fname_optim = os.path.join(self.log_dir, 'saved_model', 'optim.dump')
@@ -48,7 +50,8 @@ class BaseAgent(object):
             self.optimizer.load_state_dict(torch.load(fname_optim))
 
     def save_replay(self):
-        pickle.dump(self.memory, open('./saved_agents/exp_replay_agent.dump', 'wb'))
+        pickle.dump(self.memory, open(
+            './saved_agents/exp_replay_agent.dump', 'wb'))
 
     def load_replay(self):
         fname = './saved_agents/exp_replay_agent.dump'
@@ -60,9 +63,9 @@ class BaseAgent(object):
             sum_, count = 0.0, 0.0
             for name, param in self.q_net.named_parameters():
                 if param.requires_grad and 'sigma' in name:
-                    sum_+= torch.sum(param.abs()).item()
+                    sum_ += torch.sum(param.abs()).item()
                     count += np.prod(param.shape)
-            
+
             if count > 0:
                 with open(os.path.join(self.log_dir, 'sig_param_mag.csv'), 'a') as f:
                     writer = csv.writer(f)
@@ -70,7 +73,7 @@ class BaseAgent(object):
 
     def save_reward(self, reward):
         self.rewards.append(reward)
-    
+
     def count_parameters(self, model):
         if model is None:
             return 0

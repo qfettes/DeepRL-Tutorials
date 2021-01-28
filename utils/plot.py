@@ -1,12 +1,12 @@
-import numpy as np
+import glob
+import os
 
-#switch backend in driver file
+# switch backend in driver file
 import matplotlib
 import matplotlib.pyplot as plt
-
-import os
-import glob
+import numpy as np
 from scipy.signal import medfilt
+
 
 def smooth_reward_curve(x, y):
     # Halfwidth of our smoothing convolution
@@ -43,6 +43,7 @@ def fix_point(x, y, interval):
 
     return fx, fy
 
+
 def load_reward_data(indir, smooth, bin_size):
     datas = []
     infiles = glob.glob(os.path.join(indir, '*.monitor.csv'))
@@ -78,12 +79,14 @@ def load_reward_data(indir, smooth, bin_size):
     x, y = fix_point(x, y, bin_size)
     return [x, y]
 
-#TODO: only works for Experience Replay style training for now
+# TODO: only works for Experience Replay style training for now
+
+
 def load_custom_data(indir, stat_file, smooth, bin_size):
     datas = []
     infiles = glob.glob(os.path.join(indir, stat_file))
 
-    for inf in infiles: #should be 1
+    for inf in infiles:  # should be 1
         with open(inf, 'r') as f:
             for line in f:
                 tmp = line.split(',')
@@ -109,21 +112,24 @@ def load_custom_data(indir, stat_file, smooth, bin_size):
     x, y = fix_point(x, y, bin_size)
     return [x, y]
 
-#TODO: only works for Experience Replay style training for now
+# TODO: only works for Experience Replay style training for now
+
+
 def load_action_data(indir, smooth, bin_size):
     datas = []
     infiles = glob.glob(os.path.join(indir, 'action_log.csv'))
 
-    for inf in infiles: #should be 1
+    for inf in infiles:  # should be 1
         with open(inf, 'r') as f:
             for line in f:
                 tmp = line.split(',')
-                tmp = [int(tmp[0])] + [float(tmp[i]) for i in range(1, len(tmp))]
+                tmp = [int(tmp[0])] + [float(tmp[i])
+                                       for i in range(1, len(tmp))]
                 datas.append(tmp)
 
     datas = sorted(datas, key=lambda d_entry: d_entry[0])
     result = datas
-    #for i in range(len(datas)):
+    # for i in range(len(datas)):
     #    result.append([datas[i][0], datas[i][1]])
 
     if len(result) < bin_size:
@@ -140,11 +146,13 @@ def load_action_data(indir, smooth, bin_size):
     x, y = fix_point(x, y, bin_size)'''
     return [x, np.transpose(y)]
 
+
 def make_patch_spines_invisible(ax):
     ax.set_frame_on(True)
     ax.patch.set_visible(False)
     for sp in ax.spines.values():
         sp.set_visible(False)
+
 
 def plot_all_data(folder, game, name, num_steps, bin_size=(10, 1), smooth=1, time=None, save_filename='results.png', ipynb=False):
     matplotlib.rcParams.update({'font.size': 20})
@@ -161,15 +169,19 @@ def plot_all_data(folder, game, name, num_steps, bin_size=(10, 1), smooth=1, tim
         return
 
     if time is not None:
-        title = 'Avg. Last 10 Rewards: ' +  str(np.round(np.mean(ty[-10]))) + ' || ' +  game + ' || Elapsed Time: ' + str(time).split('.')[0]
+        title = 'Avg. Last 10 Rewards: ' + \
+            str(np.round(np.mean(ty[-10]))) + ' || ' + game + \
+            ' || Elapsed Time: ' + str(time).split('.')[0]
     else:
-        title = 'Avg. Last 10 Rewards: ' +  str(np.round(np.mean(ty[-10]))) + ' || ' +  game
+        title = 'Avg. Last 10 Rewards: ' + \
+            str(np.round(np.mean(ty[-10]))) + ' || ' + game
 
     tick_fractions = np.array([0.1, 0.2, 0.4, 0.6, 0.8, 1.0])
     ticks = tick_fractions * num_steps
     tick_names = ["{:.0e}".format(tick) for tick in ticks]
 
-    fig, (ax1, ax2, ax3, ax4, ax5, ax6, ax7, ax8, ax9, ax10) = plt.subplots(10, 1, figsize=(20, 40), subplot_kw = dict(xticks=ticks, xlim=(0, num_steps*1.15), xlabel='Timestep', title=title))
+    fig, (ax1, ax2, ax3, ax4, ax5, ax6, ax7, ax8, ax9, ax10) = plt.subplots(10, 1, figsize=(
+        20, 40), subplot_kw=dict(xticks=ticks, xlim=(0, num_steps*1.15), xlabel='Timestep', title=title))
     ax1.set_xticklabels(tick_names)
     ax2.set_xticklabels(tick_names)
     ax3.set_xticklabels(tick_names)
@@ -206,11 +218,12 @@ def plot_all_data(folder, game, name, num_steps, bin_size=(10, 1), smooth=1, tim
         ax2.yaxis.label.set_color(p2.get_color())
         ax2.tick_params(axis='y', colors=p2.get_color())'''
 
-    ax1.legend(g1_lines, [l.get_label() for l in g1_lines], loc=4) #remake g2 legend because we have a new line
+    # remake g2 legend because we have a new line
+    ax1.legend(g1_lines, [l.get_label() for l in g1_lines], loc=4)
 
     tx, ty = load_custom_data(folder, 'max_dist.csv', smooth, bin_size[1])
     subplot_generic(ax2, 'X Distance Traveled vs. Time', 'X Distance', tx, ty)
-    
+
     tx, ty = load_custom_data(folder, 'total_loss.csv', smooth, bin_size[1])
     subplot_generic(ax3, 'Total Loss vs. Time', 'Total Loss', tx, ty)
 
@@ -223,19 +236,21 @@ def plot_all_data(folder, game, name, num_steps, bin_size=(10, 1), smooth=1, tim
     tx, ty = load_custom_data(folder, 'dynamics_loss.csv', smooth, bin_size[1])
     subplot_generic(ax6, 'Dynamics Loss vs. Time', 'Dynamics Loss', tx, ty)
 
-    tx, ty = load_custom_data(folder, 'policy_entropy.csv', smooth, bin_size[1])
+    tx, ty = load_custom_data(
+        folder, 'policy_entropy.csv', smooth, bin_size[1])
     subplot_generic(ax7, 'Policy Entropy vs. Time', 'Entropy', tx, ty)
 
     tx, ty = load_custom_data(folder, 'grad_norms.csv', smooth, bin_size[1])
     subplot_generic(ax8, 'Grad Norm vs. Time', 'Grad Norm', tx, ty)
 
-    tx, ty = load_custom_data(folder, 'value_estimate.csv', smooth, bin_size[1])
-    subplot_generic(ax9, 'Avg Value Estimate vs. Time', 'Value Estimate', tx, ty)
+    tx, ty = load_custom_data(
+        folder, 'value_estimate.csv', smooth, bin_size[1])
+    subplot_generic(ax9, 'Avg Value Estimate vs. Time',
+                    'Value Estimate', tx, ty)
 
     tx, ty = load_custom_data(folder, 'learning_rate.csv', smooth, bin_size[1])
     subplot_generic(ax10, 'Learning Rate vs. Time', 'Learning Rate', tx, ty)
 
-    
     '''#Load td data if it exists
     tx, ty = load_custom_data(folder, 'max_dist.csv', smooth, bin_size[1])
 
@@ -250,8 +265,8 @@ def plot_all_data(folder, game, name, num_steps, bin_size=(10, 1), smooth=1, tim
         ax2.tick_params(axis='y', colors=p2.get_color())
 
         ax2.legend(g2_lines, [l.get_label() for l in g2_lines], loc=4)'''
-    
-    #Load action selection data if it exists
+
+    # Load action selection data if it exists
     '''tx, ty = load_action_data(folder, smooth, bin_size[3])
 
     ax3.set_title('Action Selection Frequency(%) vs Timestep')
@@ -272,7 +287,7 @@ def plot_all_data(folder, game, name, num_steps, bin_size=(10, 1), smooth=1, tim
 
         ax3.legend(loc=4) #remake g2 legend because we have a new line'''
 
-    plt.tight_layout() # prevent label cutoff
+    plt.tight_layout()  # prevent label cutoff
 
     if ipynb:
         plt.show()
@@ -280,8 +295,9 @@ def plot_all_data(folder, game, name, num_steps, bin_size=(10, 1), smooth=1, tim
         plt.savefig(os.path.join(folder, save_filename))
     plt.clf()
     plt.close()
-    
-    #return np.round(np.mean(ty[-10:]))
+
+    # return np.round(np.mean(ty[-10:]))
+
 
 def subplot_generic(ax, title, ylabel, tx, ty):
     if tx is not None or ty is not None:
@@ -294,6 +310,7 @@ def subplot_generic(ax, title, ylabel, tx, ty):
         ax.tick_params(axis='y', colors=p.get_color())
 
         ax.legend(g_lines, [l.get_label() for l in g_lines], loc=4)
+
 
 def plot_reward(folder, game, num_steps, bin_size=10, smooth=1, time=None, save_filename='results.png', ipynb=False):
     matplotlib.rcParams.update({'font.size': 20})
@@ -313,15 +330,19 @@ def plot_reward(folder, game, num_steps, bin_size=10, smooth=1, time=None, save_
     tx = tx.tolist()
 
     if time is not None:
-        title = 'Avg. Last 10 Rewards: ' +  str(np.round(np.mean(ty[-10]))) + ' || ' +  game + ' || Elapsed Time: ' + str(time).split('.')[0]
+        title = 'Avg. Last 10 Rewards: ' + \
+            str(np.round(np.mean(ty[-10]))) + ' || ' + game + \
+            ' || Elapsed Time: ' + str(time).split('.')[0]
     else:
-        title = 'Avg. Last 10 Rewards: ' +  str(np.round(np.mean(ty[-10]))) + ' || ' +  game
+        title = 'Avg. Last 10 Rewards: ' + \
+            str(np.round(np.mean(ty[-10]))) + ' || ' + game
 
     tick_fractions = np.array([0.1, 0.2, 0.4, 0.6, 0.8, 1.0])
     ticks = tick_fractions * num_steps
     tick_names = ["{:.0e}".format(tick) for tick in ticks]
 
-    fig, ax1  = plt.subplots(1, 1, figsize=(20, 5), subplot_kw = dict(xticks=ticks, xlim=(0, num_steps*1.15), xlabel='Timestep', title=title))
+    fig, ax1 = plt.subplots(1, 1, figsize=(20, 5), subplot_kw=dict(
+        xticks=ticks, xlim=(0, num_steps*1.15), xlabel='Timestep', title=title))
     ax1.set_xticklabels(tick_names)
 
     ax1.set_ylabel('Reward')
@@ -334,9 +355,10 @@ def plot_reward(folder, game, num_steps, bin_size=10, smooth=1, time=None, save_
 
     g1_lines = [p1]
 
-    ax1.legend(g1_lines, [l.get_label() for l in g1_lines], loc=4) #remake g2 legend because we have a new line
+    # remake g2 legend because we have a new line
+    ax1.legend(g1_lines, [l.get_label() for l in g1_lines], loc=4)
 
-    plt.tight_layout() # prevent label cutoff
+    plt.tight_layout()  # prevent label cutoff
 
     if ipynb:
         plt.show()
