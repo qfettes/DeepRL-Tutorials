@@ -13,7 +13,7 @@ from agents.BaseAgent import BaseAgent
 
 class Agent(BaseAgent):
     def __init__(self, env=None, config=None, log_dir='/tmp/gym', tb_writer=None):
-        super(Agent, self).__init__(env=env, config=config,
+        super().__init__(env=env, config=config,
                                     log_dir=log_dir, tb_writer=tb_writer)
         self.config = config
         self.num_feats = env.observation_space.shape
@@ -23,11 +23,12 @@ class Agent(BaseAgent):
             self.action_space = env.action_space.n * \
                 len(config.adaptive_repeat)
         elif env.action_space.__class__.__name__ == 'Box':
+            ValueError("Continuous Action Space support for A2C has been temporarily removed :(")
             self.action_space = env.action_space
             self.continousActionSpace = True
         else:
             print('[ERROR] Unrecognized Action Space Type')
-            exit()
+            sys.exit()
 
         self.envs = env
 
@@ -57,7 +58,7 @@ class Agent(BaseAgent):
         self.training_priors()
 
     def declare_networks(self):
-        self.policy_value_net = ActorCritic(self.num_feats, self.action_space, body_out=self.config.body_out, use_gru=self.config.policy_gradient_recurrent_policy,
+        self.policy_value_net = ActorCritic(self.num_feats, self.action_space, body_out=self.config.body_out, use_gru=self.config.recurrent_policy_gradient,
                                             gru_size=self.config.gru_size, noisy_nets=self.config.noisy_nets, sigma_init=self.config.sigma_init)
 
     def training_priors(self):

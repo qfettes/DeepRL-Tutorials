@@ -8,7 +8,7 @@ from agents.DQN import Agent as DQN_Agent
 
 class Agent(DQN_Agent):
     def __init__(self, env=None, config=None, log_dir='/tmp/gym', tb_writer=None):
-        super(Agent, self).__init__(env=env, config=config,
+        super().__init__(env=env, config=config,
                                     log_dir=log_dir, tb_writer=tb_writer)
 
         self.supports = torch.linspace(self.config.c51_vmin, self.config.c51_vmax,

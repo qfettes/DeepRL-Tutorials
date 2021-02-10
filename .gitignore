@@ -1,6 +1,7 @@
 # Byte-compiled / optmized / DLL files
 __pycache__/
 *.py[cod]
+.pytest_cache/
 
 # Ipython Checkpoints
 .ipynb_checkpoints/

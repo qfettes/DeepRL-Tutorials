@@ -22,11 +22,13 @@ class Config(object):
         # preprocessing
         self.stack_frames = 4
         self.adaptive_repeat = [4]
+        self.state_norm = 1.0
         self.sticky_actions = 0.0
 
         # Learning control variables
         self.max_tsteps = int(1e7)
         self.learn_start = int(8e4)
+        self.random_act = int(1e4)
         self.num_envs = 1
         self.update_freq = 4
         self.lr = 2.5e-4
@@ -84,7 +86,7 @@ class Config(object):
         self.drqn_sequence_length = 8
 
         # Recurrent Policy Gradient Policy
-        self.policy_gradient_recurrent_policy = False
+        self.recurrent_policy_gradient = False
         self.gru_size = 512
 
         # a2c controls

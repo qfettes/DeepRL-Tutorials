@@ -6,6 +6,12 @@
 # TODO: add hparams to tensorboard
 # TODO: add video to tensorboard
 # TODO: add inference mode
+# TODO: add random act for all algos
+# TODO: remove baselines dependency
+# TODO: remove the add_graph garbage
+# TODO: convert hyperparams to dict
+# TODO: standardize command line arg names with the config names
+# TODO: fix noisy nets in SAC
 
 from utils.wrappers import make_envs_general
 from utils.plot import plot_reward
@@ -37,10 +43,10 @@ parser.add_argument('--seed', type=int, default=None, help='random seed. \
                         generated (default: None)')
 parser.add_argument('--inference', action='store_true', default=False,
                     help='Inference saved model')
-parser.add_argument('--print-threshold', type=int, default=250,
+parser.add_argument('--print-threshold', type=int, default=1000,
                     help='print progress and plot every print-threshold timesteps (default: 1000)')
-parser.add_argument('--save-threshold', type=int, default=2500,
-                    help='save nn params every save-threshold timesteps (default: 1000)')
+parser.add_argument('--save-threshold', type=int, default=100000,
+                    help='save nn params every save-threshold timesteps (default: 100000)')
 parser.add_argument('--render', action='store_true', default=False,
                     help='Render the inference epsiode (default: False')
 parser.add_argument('--logdir', default='./results/train/',
@@ -64,6 +70,8 @@ parser.add_argument('--max-tsteps', type=int, default=2e7,
                     help='Maximimum number of timsteps to train (default: 2e7)')
 parser.add_argument('--learn-start', type=int, default=8e4,
                     help='tstep to start updating for dqn-type methods only (default: 80000)')
+parser.add_argument('--random-act', type=int, default=1e4,
+                    help='Take uniform random actions until this tstep (default: 10000)')
 parser.add_argument('--nenvs', type=int, default=1,
                     help='number of parallel environments executing (default: 1)')
 parser.add_argument('--update-freq', type=int, default=4,
@@ -205,7 +213,7 @@ def train(config, Agent, ipynb=False):
             torch.cuda.manual_seed(config.seed)
 
     envs = make_envs_general(config.env_id, config.seed, log_dir,
-                             config.num_envs, config.gamma, stack_frames=config.stack_frames,
+                             config.num_envs, stack_frames=config.stack_frames,
                              adaptive_repeat=config.adaptive_repeat,
                              sticky_actions=config.sticky_actions, clip_rewards=True)
 
@@ -233,54 +241,38 @@ def train(config, Agent, ipynb=False):
 
             agent.step(current_tstep, step)
 
-        current_tstep = (epoch) * config.num_envs * config.update_freq
+            current_tstep = (epoch) * config.num_envs * config.update_freq
+            if current_tstep % config.save_threshold == 0:
+                agent.save_w()
+
+            if current_tstep % config.print_threshold == 0 and agent.last_100_rewards:
+                update_progress(config, progress, agent, current_tstep, start, log_dir, ipynb)
+
         agent.update(current_tstep)
 
-        if epoch % config.save_threshold == 0:
-            agent.save_w()
-
-        if epoch % config.print_threshold == 0 and agent.last_100_rewards:
-            end = timer()
-            if not ipynb:
-                progress.set_description("Upd. %d, Tsteps %d, Time %s, FPS %d, mean/median R %.1f/%.1f, min/max R %.1f/%.1f" %
-                                         (int(np.max([(current_tstep-config.learn_start)/config.update_freq, 0])),
-                                          current_tstep,
-                                          str(timedelta(seconds=end-start)
-                                              ).split('.')[0],
-                                             int(current_tstep *
-                                                 np.mean(config.adaptive_repeat) / (end - start)),
-                                             np.mean(agent.last_100_rewards),
-                                             np.median(agent.last_100_rewards),
-                                             np.min(agent.last_100_rewards),
-                                             np.max(agent.last_100_rewards))
-                                         )
-            else:
-                clear_output(True)
-                plot_reward(log_dir, config.env_id, config.max_tsteps, bin_size=10, smooth=1,
-                            time=timedelta(seconds=end-start), save_filename='results.png', ipynb=True)
-
-    end = timer()
     if(agent.last_100_rewards):
-        if not ipynb:
-            progress.set_description("Upd. %d, Tsteps %d, Time %s, FPS %d, mean/median R %.1f/%.1f, min/max R %.1f/%.1f" %
-                                     (int(np.max([(config.max_tsteps-config.learn_start)/config.update_freq, 0])),
-                                      config.max_tsteps,
-                                      str(timedelta(seconds=end-start)
-                                          ).split('.')[0],
-                                         int(config.max_tsteps *
-                                             np.mean(config.adaptive_repeat) / (end - start)),
-                                         np.mean(agent.last_100_rewards),
-                                         np.median(agent.last_100_rewards),
-                                         np.min(agent.last_100_rewards),
-                                         np.max(agent.last_100_rewards))
-                                     )
-        else:
-            clear_output(True)
-            plot_reward(log_dir, config.env_id, config.max_tsteps, bin_size=10, smooth=1,
-                        time=timedelta(seconds=end-start), save_filename='results.png', ipynb=True)
+        update_progress(config, progress, agent, config.max_tsteps, start, log_dir, ipynb)
 
     agent.save_w()
     envs.close()
+
+def update_progress(config, progress, agent, current_tstep, start, log_dir, ipynb):
+    end = timer()
+    if not ipynb:
+        progress.set_description("Upd. %d, Tsteps %d, Time %s, FPS %d, mean/median R %.1f/%.1f, min/max R %.1f/%.1f" %
+            (int(np.max([(current_tstep-config.learn_start)/config.update_freq, 0])),
+            current_tstep,
+            str(timedelta(seconds=end-start)
+                ).split('.')[0],
+                int(current_tstep * np.mean(config.adaptive_repeat) / (end - start)),
+                np.mean(agent.last_100_rewards),
+                np.median(agent.last_100_rewards),
+                np.min(agent.last_100_rewards),
+                np.max(agent.last_100_rewards))
+            )
+    else:
+        plot_reward(log_dir, config.env_id, config.max_tsteps, bin_size=10, smooth=1,
+                    time=timedelta(seconds=end-start), save_filename='results.png', ipynb=True)
 
 
 if __name__ == '__main__':
@@ -317,12 +309,13 @@ if __name__ == '__main__':
     # preprocessing
     config.stack_frames = int(args.stack_frames)
     config.adaptive_repeat = args.adaptive_repeat
-    config.s_norm = args.state_norm
+    config.state_norm = args.state_norm
     config.sticky_actions = args.sticky_actions
 
     # Learning Control Variables
     config.max_tsteps = int(args.max_tsteps)
     config.learn_start = int(args.learn_start)
+    config.random_act = int(args.random_act)
     config.num_envs = int(args.nenvs)
     config.update_freq = int(args.update_freq)
     config.lr = args.lr
@@ -379,7 +372,7 @@ if __name__ == '__main__':
     # config.drqn_sequence_length = 8
 
     # Recurrent control
-    config.policy_gradient_recurrent_policy = args.recurrent_policy_gradient
+    config.recurrent_policy_gradient = args.recurrent_policy_gradient
     config.gru_size = int(args.gru_size)
 
     # A2C Controls

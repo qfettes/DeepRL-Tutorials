@@ -111,7 +111,7 @@ class WrapPyTorch(gym.ObservationWrapper):
         return np.array(observation).transpose(2, 0, 1)
 
 
-def make_envs_general(env_id, seed, log_dir, num_envs, gamma, stack_frames=4, adaptive_repeat=[4], sticky_actions=0.0, clip_rewards=True):
+def make_envs_general(env_id, seed, log_dir, num_envs, stack_frames=4, adaptive_repeat=[4], sticky_actions=0.0, clip_rewards=True):
     env = gym.make(env_id)
     atari = True if env.action_space.__class__.__name__ == 'Discrete' else False
     env.close()
@@ -119,18 +119,18 @@ def make_envs_general(env_id, seed, log_dir, num_envs, gamma, stack_frames=4, ad
     if atari:
         return make_all_atari(env_id, seed, log_dir, num_envs, stack_frames, adaptive_repeat, sticky_actions, clip_rewards)
     else:
-        return make_pybullet(env_id, seed, log_dir, num_envs, gamma)
+        return make_all_continuous(env_id, seed, log_dir, num_envs)
 
 
 def make_all_atari(env_id, seed, log_dir, num_envs, stack_frames=4, adaptive_repeat=[4], sticky_actions=0.0, clip_rewards=True):
-    envs = [make_env_atari(env_id, seed, i, log_dir, stack_frames=stack_frames, adaptive_repeat=adaptive_repeat,
+    envs = [make_one_atari(env_id, seed, i, log_dir, stack_frames=stack_frames, adaptive_repeat=adaptive_repeat,
                            sticky_actions=sticky_actions, clip_rewards=True) for i in range(num_envs)]
     envs = DummyVecEnv(envs) if len(envs) == 1 else SubprocVecEnv(envs)
 
     return envs
 
 
-def make_env_atari(env_id, seed, rank, log_dir, stack_frames=4, adaptive_repeat=[4], sticky_actions=0.0, clip_rewards=True):
+def make_one_atari(env_id, seed, rank, log_dir, stack_frames=4, adaptive_repeat=[4], sticky_actions=0.0, clip_rewards=True):
     def _thunk():
         env = make_atari_custom(env_id, max_episode_steps=None,
                                 skip=adaptive_repeat, sticky_actions=sticky_actions)
@@ -151,16 +151,15 @@ def make_env_atari(env_id, seed, rank, log_dir, stack_frames=4, adaptive_repeat=
     return _thunk
 
 
-def make_pybullet(env_id, seed, log_dir, num_envs, gamma):
-    envs = [make_env_continuous(env_id, seed, i, log_dir)
-            for i in range(num_envs)]
+def make_all_continuous(env_id, seed, log_dir, num_envs):
+    envs = [make_one_continuous(env_id, seed, i, log_dir)for i in range(num_envs)]
     envs = DummyVecEnv(envs) if len(envs) == 1 else SubprocVecEnv(envs)
 
-    if len(envs.observation_space.shape) == 1:
-        if gamma is None:
-            envs = VecNormalize(envs, ret=False)
-        else:
-            envs = VecNormalize(envs, gamma=gamma)
+    # if len(envs.observation_space.shape) == 1:
+    #     if gamma is None:
+    #         envs = VecNormalize(envs, ret=False)
+    #     else:
+    #         envs = VecNormalize(envs, gamma=gamma)
 
     # envs = VecPyTorch(envs, device)
 
@@ -172,7 +171,7 @@ def make_pybullet(env_id, seed, log_dir, num_envs, gamma):
     return envs
 
 
-def make_env_continuous(env_id, seed, rank, log_dir):
+def make_one_continuous(env_id, seed, rank, log_dir):
     def _thunk():
         env = gym.make(env_id)
 
@@ -193,30 +192,30 @@ def make_env_continuous(env_id, seed, rank, log_dir):
 # https://github.com/ikostrikov/pytorch-a2c-ppo-acktr-gail
 
 
-class VecNormalize(VecNormalize_):
-    def __init__(self, *args, **kwargs):
-        super(VecNormalize, self).__init__(*args, **kwargs)
-        self.training = True
+# class VecNormalize(VecNormalize_):
+#     def __init__(self, *args, **kwargs):
+#         super(VecNormalize, self).__init__(*args, **kwargs)
+#         self.training = True
 
-    def _obfilt(self, obs, update=True):
-        if self.ob_rms:
-            if self.training and update:
-                self.ob_rms.update(obs)
-            obs = np.clip((obs - self.ob_rms.mean) /
-                          np.sqrt(self.ob_rms.var + self.epsilon),
-                          -self.clipob, self.clipob)
-            return obs
-        else:
-            return obs
+#     def _obfilt(self, obs, update=True):
+#         if self.ob_rms:
+#             if self.training and update:
+#                 self.ob_rms.update(obs)
+#             obs = np.clip((obs - self.ob_rms.mean) /
+#                           np.sqrt(self.ob_rms.var + self.epsilon),
+#                           -self.clipob, self.clipob)
+#             return obs
+#         else:
+#             return obs
 
-    def train(self):
-        self.training = True
+#     def train(self):
+#         self.training = True
 
-    def eval(self):
-        self.training = False
+#     def eval(self):
+#         self.training = False
 
-# https://github.com/ikostrikov/pytorch-a2c-ppo-acktr-gail
-# Checks whether done was caused my timit limits or not
+# # https://github.com/ikostrikov/pytorch-a2c-ppo-acktr-gail
+# # Checks whether done was caused my timit limits or not
 
 
 class TimeLimitMask(gym.Wrapper):

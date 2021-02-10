@@ -10,7 +10,7 @@ from agents.A2C import Agent as A2C
 
 class Agent(A2C):
     def __init__(self, env=None, config=None, log_dir='/tmp/gym', tb_writer=None):
-        super(Agent, self).__init__(env=env, config=config,
+        super().__init__(env=env, config=config,
                                     log_dir=log_dir, tb_writer=tb_writer)
 
         self.optimizer = optim.Adam(self.policy_value_net.parameters(

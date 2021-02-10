@@ -13,7 +13,7 @@ class Agent(DQN_Agent):
     def __init__(self, env=None, config=None, log_dir='/tmp/gym'):
         self.sequence_length = config.drqn_sequence_length
 
-        super(Agent, self).__init__(env=env, config=config,
+        super().__init__(env=env, config=config,
                                     log_dir=log_dir, tb_writer=tb_writer)
 
         self.reset_hx()

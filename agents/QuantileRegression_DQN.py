@@ -13,7 +13,7 @@ class Agent(DQN_Agent):
             2.0 * self.num_quantiles), device=config.device, dtype=torch.float)
         self.quantile_weight = 1.0 / self.num_quantiles
 
-        super(Agent, self).__init__(env=env, config=config,
+        super().__init__(env=env, config=config,
                                     log_dir=log_dir, tb_writer=tb_writer)
 
     def declare_networks(self):
