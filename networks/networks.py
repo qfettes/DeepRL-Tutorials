@@ -462,10 +462,10 @@ class SquashedGaussianMLPActor(nn.Module):
             # of where it comes from, check out the original SAC paper (arXiv 1801.01290) 
             # and look in appendix C. This is a more numerically-stable equivalent to Eq 21.
             # Try deriving it yourself as a (very difficult) exercise. :)
-            # logp_pi = pi_distribution.log_prob(pi_action).sum(axis=-1, keepdim=True)
-            # logp_pi -= (2*(np.log(2) - pi_action - F.softplus(-2*pi_action))).sum(axis=1, keepdim=True)
-            logp_pi = pi_distribution.log_prob(pi_action).sum(axis=-1)
-            logp_pi -= (2*(np.log(2) - pi_action - F.softplus(-2*pi_action))).sum(axis=1)
+            logp_pi = pi_distribution.log_prob(pi_action).sum(axis=-1, keepdim=True)
+            logp_pi -= (2*(np.log(2) - pi_action - F.softplus(-2*pi_action))).sum(axis=1, keepdim=True)
+            # logp_pi = pi_distribution.log_prob(pi_action).sum(axis=-1)
+            # logp_pi -= (2*(np.log(2) - pi_action - F.softplus(-2*pi_action))).sum(axis=1)
         else:
             logp_pi = None
 
@@ -483,8 +483,8 @@ class MLPQFunction(nn.Module):
 
     def forward(self, obs, act):
         q = self.q(torch.cat([obs, act], dim=-1))
-        return torch.squeeze(q, -1) # Critical to ensure q has right shape.
-        # return q
+        # return torch.squeeze(q, -1) # Critical to ensure q has right shape.
+        return q
 
 class MLPActorCritic(nn.Module):
 

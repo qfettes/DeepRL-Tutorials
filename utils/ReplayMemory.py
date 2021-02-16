@@ -60,8 +60,7 @@ class ExperienceReplayMemory(object):
         non_final_mask = np.array(
             tuple(map(lambda s: s is not None, obses_tp1))).astype(bool)
         try:
-            non_final_next_states = np.array(
-                [s for s in obses_tp1 if s is not None], dtype=int)
+            non_final_next_states = np.array([s for s in obses_tp1 if s is not None])
             empty_next_state_values = False
         except:
             non_final_next_states = None
@@ -91,8 +90,7 @@ class ExperienceReplayMemory(object):
             done_mask[i] = 1 if executing act_batch[i] resulted in
             the end of an episode and 0 otherwise.
         """
-        idxes = np.random.randint(0, len(self._storage) - 1, size=batch_size)
-
+        idxes = np.random.randint(0, len(self._storage), size=batch_size)
         return self._encode_sample(idxes)
 
 
