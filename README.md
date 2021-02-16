@@ -94,7 +94,7 @@ python train.py --env-name Reacher-v2 --algo ppo --print-threshold 1 --save-thre
 
 ### Soft Actor-Critic
 ```
-python train.py --algo sac --env-name HalfCheetah-v2 --gamma 0.99 --polyak-coef 0.995 --lr 0.003 --entropy-coef 0.2 --batch-size 100 --max-tsteps 1000000 --learn-start 1000 --random-act 10000 --replay-size 1000000 --update-freq 50 --state-norm 1.0 - --adam-eps 1e-8
+python train.py --algo sac --env-name HalfCheetah-v2 --gamma 0.99 --polyak-coef 0.995 --lr 0.003 --entropy-coef 0.2 --batch-size 100 --max-tsteps 1000000 --learn-start 1000 --random-act 10000 --replay-size 1000000 --update-freq 50 --state-norm 1.0 --adam-eps 1e-8 --correct-time-limits
 ```
     
 ## Requirements: 

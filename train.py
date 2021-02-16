@@ -1,7 +1,6 @@
 
 # TODO: add arg to control type of noise in noisy nets
 # TODO: efficiency for priority replay functions
-# TODO: Add param to select device
 # TODO: fix computation graph for recurrent a2c
 # TODO: add hparams to tensorboard
 # TODO: add video to tensorboard
@@ -12,6 +11,8 @@
 # TODO: convert hyperparams to dict
 # TODO: standardize command line arg names with the config names
 # TODO: fix noisy nets in SAC
+# TODO: change target network copying to use deepcopy everywhere
+# TODO: move/add parameter freezing to declare network for target nets
 
 from utils.wrappers import make_envs_general
 from utils.plot import plot_reward
@@ -34,6 +35,8 @@ gym.logger.set_level(40)
 
 parser = argparse.ArgumentParser(description='RL')
 # Meta Info
+parser.add_argument('--device', default='cuda',
+                    help='device to use: cuda | cpu')
 parser.add_argument('--algo', default='dqn',
                     help='algorithm to use: dqn | c51 | a2c | ppo | sac')
 parser.add_argument('--env-name', default='BreakoutNoFrameskip-v4',
@@ -51,6 +54,8 @@ parser.add_argument('--render', action='store_true', default=False,
                     help='Render the inference epsiode (default: False')
 parser.add_argument('--logdir', default='./results/train/',
                                         help='algorithm to use (default: ./results/train)')
+parser.add_argument('--correct-time-limits', action='store_true', default=False,
+                    help='Ignore time-limit end of episode when updating (default: False')
 
 # Preprocessing
 parser.add_argument('--stack-frames', type=int, default=4,
@@ -297,6 +302,7 @@ if __name__ == '__main__':
     config = Config()
 
     # meta info
+    config.device = torch.device(args.device)
     config.algo = args.algo
     config.env_id = args.env_name
     config.seed = args.seed
@@ -305,6 +311,7 @@ if __name__ == '__main__':
     config.save_threshold = int(args.save_threshold)
     config.render = args.render
     config.logdir = args.logdir
+    config.correct_time_limits = args.correct_time_limits
 
     # preprocessing
     config.stack_frames = int(args.stack_frames)

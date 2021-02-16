@@ -4,8 +4,6 @@ import random
 import numpy as np
 import torch
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 # class ExperienceReplayMemory:
 #     def __init__(self, capacity):
 #         self.capacity = capacity
@@ -41,9 +39,6 @@ class ExperienceReplayMemory(object):
 
     def __len__(self):
         return len(self._storage)
-
-    # def add(self, obs_t, action, reward, obs_tp1, done):
-    #     data = (obs_t, action, reward, obs_tp1, done)
 
     def push(self, data):
         if self._next_idx >= len(self._storage):
@@ -96,8 +91,8 @@ class ExperienceReplayMemory(object):
             done_mask[i] = 1 if executing act_batch[i] resulted in
             the end of an episode and 0 otherwise.
         """
-        idxes = [random.randint(0, len(self._storage) - 1)
-                 for _ in range(batch_size)]
+        idxes = np.random.randint(0, len(self._storage) - 1, size=batch_size)
+
         return self._encode_sample(idxes)
 
 

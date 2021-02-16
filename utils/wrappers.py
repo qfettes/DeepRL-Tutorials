@@ -177,8 +177,10 @@ def make_one_continuous(env_id, seed, rank, log_dir):
 
         if seed:
             env.seed(seed + rank)
+            env.action_space.seed(seed + rank)
         else:
             env.seed(np.random.randint(10000000000))
+            env.action_space.seed(np.random.randint(10000000000))
 
         if str(env.__class__.__name__).find('TimeLimit') >= 0:
             env = TimeLimitMask(env)
