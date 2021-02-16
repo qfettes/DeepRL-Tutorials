@@ -34,7 +34,7 @@ class Agent(DQN_Agent):
         with torch.no_grad():
             self.target_q_net.sample_noise()
             max_next_dist = torch.zeros((self.config.batch_size, 1, self.config.c51_atoms),
-                                        device=self.config.device, dtype=torch.float) + 1. / self.config.c51_atoms
+                                        device=self.device, dtype=torch.float) + 1. / self.config.c51_atoms
 
             if not empty_next_state_values:
                 if self.config.double_dqn:
@@ -61,7 +61,7 @@ class Agent(DQN_Agent):
             d_m_l = (u + (l == u).float() - b) * max_next_dist
             d_m_u = (b - l) * max_next_dist
             target_prob = torch.zeros(max_next_dist.size(
-            ), device=self.config.device, dtype=torch.float)
+            ), device=self.device, dtype=torch.float)
             for i in range(target_prob.size(0)):
                 target_prob[i].index_add_(0, l[i], d_m_l[i])
                 target_prob[i].index_add_(0, u[i], d_m_u[i])
@@ -104,7 +104,7 @@ class Agent(DQN_Agent):
                 self.add_graph(s)
 
             if np.random.random() > eps or self.config.noisy_nets:
-                X = torch.from_numpy(s).to(self.config.device).to(
+                X = torch.from_numpy(s).to(self.device).to(
                     torch.float).view((-1,)+self.num_feats)
 
                 self.q_net.sample_noise()

@@ -1,10 +1,7 @@
 import pickle, os, glob, math
 
 def save_config(config, base_dir):
-    tmp_device = config.device
-    config.device = None
     pickle.dump(config, open(os.path.join(base_dir, 'config.dump'), 'wb'))
-    config.device = tmp_device
 
 def update_linear_schedule(optimizer, epoch, total_num_epochs, initial_lr):
     """Decreases the learning rate linearly"""

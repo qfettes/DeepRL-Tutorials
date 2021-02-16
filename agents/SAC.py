@@ -77,9 +77,9 @@ class Agent(DQN_Agent):
         #     p.requires_grad = False
 
         # # move to correct device
-        # self.policy_net.to(self.config.device)
-        # self.q_net.to(self.config.device)
-        # self.target_q_net.to(self.config.device)
+        # self.policy_net.to(self.device)
+        # self.q_net.to(self.device)
+        # self.target_q_net.to(self.device)
 
         # if self.config.inference:
         #     self.policy_net.eval()
@@ -99,8 +99,8 @@ class Agent(DQN_Agent):
 
         self.q_params = itertools.chain(self.ac.q1.parameters(), self.ac.q2.parameters())
         
-        self.ac.to(self.config.device)
-        self.ac_targ.to(self.config.device)
+        self.ac.to(self.device)
+        self.ac_targ.to(self.device)
 
     def declare_memory(self):
         if self.config.priority_replay:
@@ -127,21 +127,21 @@ class Agent(DQN_Agent):
         batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values = data
 
         batch_state = torch.from_numpy(batch_state).to(
-            self.config.device).to(torch.float)
+            self.device).to(torch.float)
         batch_action = torch.from_numpy(batch_action).to(
-            self.config.device).to(torch.float)
+            self.device).to(torch.float)
         batch_reward = torch.from_numpy(batch_reward).to(
-            self.config.device).to(torch.float).unsqueeze(dim=1)
+            self.device).to(torch.float).unsqueeze(dim=1)
 
         non_final_mask = torch.from_numpy(non_final_mask).to(
-            self.config.device).to(torch.bool)
+            self.device).to(torch.bool)
         if not empty_next_state_values:
             non_final_next_states = torch.from_numpy(
-                non_final_next_states).to(self.config.device).to(torch.float)
+                non_final_next_states).to(self.device).to(torch.float)
 
         if self.config.priority_replay:
             weights = torch.from_numpy(weights).to(
-                self.config.device).to(torch.float).view(-1, 1)
+                self.device).to(torch.float).view(-1, 1)
 
         batch_state /= self.config.state_norm
         non_final_next_states /= self.config.state_norm
@@ -159,9 +159,9 @@ class Agent(DQN_Agent):
 
         # target
         with torch.no_grad():
-            next_action_log_probs = torch.zeros(self.config.batch_size, device=self.config.device, dtype=torch.float).unsqueeze(dim=1)
-            next_q_values_1 = torch.zeros(self.config.batch_size, device=self.config.device, dtype=torch.float).unsqueeze(dim=1)
-            next_q_values_2 = torch.zeros(self.config.batch_size, device=self.config.device, dtype=torch.float).unsqueeze(dim=1)
+            next_action_log_probs = torch.zeros(self.config.batch_size, device=self.device, dtype=torch.float).unsqueeze(dim=1)
+            next_q_values_1 = torch.zeros(self.config.batch_size, device=self.device, dtype=torch.float).unsqueeze(dim=1)
+            next_q_values_2 = torch.zeros(self.config.batch_size, device=self.device, dtype=torch.float).unsqueeze(dim=1)
 
             # next_actions, next_action_log_probs[non_final_mask] = self.get_action(non_final_next_states, deterministic=False, with_logprob=True)
             next_actions, next_action_log_probs[non_final_mask] = self.ac.pi(non_final_next_states)
@@ -307,7 +307,7 @@ class Agent(DQN_Agent):
             self.actions = self.envs.action_space.sample()
         else:
             # TODO: modifying step in the next line is incosistent with prior code style
-            X = torch.from_numpy(self.observations).to(self.config.device).to(
+            X = torch.from_numpy(self.observations).to(self.device).to(
                 torch.float).view((-1,)+self.num_feats) / self.config.state_norm
             self.actions = self.get_action(X, deterministic=False)
             # self.actions = self.actions.detach().view(self.envs.action_space.shape).cpu().numpy()

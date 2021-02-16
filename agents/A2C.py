@@ -38,7 +38,7 @@ class Agent(BaseAgent):
         ), lr=self.config.lr, alpha=self.config.rms_alpha, eps=self.config.rms_eps)
 
         # move to correct device
-        self.policy_value_net = self.policy_value_net.to(self.config.device)
+        self.policy_value_net = self.policy_value_net.to(self.device)
 
         if self.config.inference:
             self.policy_value_net.eval()
@@ -47,7 +47,7 @@ class Agent(BaseAgent):
 
         self.rollouts = RolloutStorage(self.config.update_freq, self.config.num_envs,
                                        self.num_feats, self.envs.action_space, self.policy_value_net.state_size,
-                                       self.config.device, config.use_gae, config.gae_tau, config.correct_time_limits)
+                                       self.device, config.use_gae, config.gae_tau, config.correct_time_limits)
 
         self.value_losses = []
         self.entropy_losses = []
@@ -65,7 +65,7 @@ class Agent(BaseAgent):
         self.obs = self.envs.reset()
 
         obs = torch.from_numpy(self.obs.astype(
-            np.float32)).to(self.config.device)
+            np.float32)).to(self.device)
 
         self.rollouts.observations[0].copy_(obs)
 
@@ -214,7 +214,7 @@ class Agent(BaseAgent):
 
         obs, reward, done, info = self.envs.step(cpu_actions)
 
-        obs = torch.from_numpy(obs.astype(np.float32)).to(self.config.device)
+        obs = torch.from_numpy(obs.astype(np.float32)).to(self.device)
 
         # agent rewards
         self.episode_rewards += reward
@@ -243,10 +243,10 @@ class Agent(BaseAgent):
                 bad_masks.append([1.0])
 
         rewards = torch.from_numpy(reward.astype(
-            np.float32)).view(-1, 1).to(self.config.device)
-        masks = torch.from_numpy(masks).to(self.config.device).view(-1, 1)
+            np.float32)).view(-1, 1).to(self.device)
+        masks = torch.from_numpy(masks).to(self.device).view(-1, 1)
         bad_masks = torch.tensor(
-            bad_masks, dtype=torch.float, device=self.config.device)
+            bad_masks, dtype=torch.float, device=self.device)
 
         self.rollouts.insert(obs, states, actions,
                              action_log_prob, values, rewards, masks, bad_masks)

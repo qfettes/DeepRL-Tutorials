@@ -33,8 +33,8 @@ class Agent(BaseAgent):
         # self.loss_fun = torch.nn.MSELoss(reduction='mean')
 
         # move to correct device
-        self.q_net = self.q_net.to(self.config.device)
-        self.target_q_net.to(self.config.device)
+        self.q_net = self.q_net.to(self.device)
+        self.target_q_net.to(self.device)
 
         if self.config.inference:
             self.q_net.eval()
@@ -120,21 +120,21 @@ class Agent(BaseAgent):
         batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values = data
 
         batch_state = torch.from_numpy(batch_state).to(
-            self.config.device).to(torch.float)
+            self.device).to(torch.float)
         batch_action = torch.from_numpy(batch_action).to(
-            self.config.device).to(torch.long).unsqueeze(dim=1)
+            self.device).to(torch.long).unsqueeze(dim=1)
         batch_reward = torch.from_numpy(batch_reward).to(
-            self.config.device).to(torch.float).unsqueeze(dim=1)
+            self.device).to(torch.float).unsqueeze(dim=1)
 
         non_final_mask = torch.from_numpy(non_final_mask).to(
-            self.config.device).to(torch.bool)
+            self.device).to(torch.bool)
         if not empty_next_state_values:
             non_final_next_states = torch.from_numpy(
-                non_final_next_states).to(self.config.device).to(torch.float)
+                non_final_next_states).to(self.device).to(torch.float)
 
         if self.config.priority_replay:
             weights = torch.from_numpy(weights).to(
-                self.config.device).to(torch.float).view(-1, 1)
+                self.device).to(torch.float).view(-1, 1)
 
         batch_state /= 255.0
         non_final_next_states /= 255.0
@@ -151,7 +151,7 @@ class Agent(BaseAgent):
         # target
         with torch.no_grad():
             next_q_values = torch.zeros(
-                self.config.batch_size, device=self.config.device, dtype=torch.float).unsqueeze(dim=1)
+                self.config.batch_size, device=self.device, dtype=torch.float).unsqueeze(dim=1)
             self.target_q_net.sample_noise()
             if not empty_next_state_values:
                 if self.config.double_dqn:
@@ -239,7 +239,7 @@ class Agent(BaseAgent):
                 self.add_graph(s)
 
             if np.random.random() > eps or self.config.noisy_nets:
-                X = torch.from_numpy(s).to(self.config.device).to(
+                X = torch.from_numpy(s).to(self.device).to(
                     torch.float).view((-1,)+self.num_feats)
                 X /= 255.0
 
@@ -257,7 +257,7 @@ class Agent(BaseAgent):
 
     def add_graph(self, inp):
         with torch.no_grad():
-            X = torch.from_numpy(inp).to(self.config.device).to(
+            X = torch.from_numpy(inp).to(self.device).to(
                 torch.float).view((-1,)+self.num_feats)
             self.tb_writer.add_graph(self.q_net, X)
             self.first_action = False

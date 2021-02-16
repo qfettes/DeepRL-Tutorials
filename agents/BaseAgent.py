@@ -12,6 +12,7 @@ class BaseAgent(object):
         self.q_net = None
         self.target_q_net = None
         self.optimizer = None
+        self.device = torch.device(config.device)
 
         self.log_dir = log_dir
         self.tb_writer = tb_writer

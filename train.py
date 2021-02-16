@@ -302,7 +302,7 @@ if __name__ == '__main__':
     config = Config()
 
     # meta info
-    config.device = torch.device(args.device)
+    config.device = args.device
     config.algo = args.algo
     config.env_id = args.env_name
     config.seed = args.seed
