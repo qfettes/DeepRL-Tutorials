@@ -46,6 +46,12 @@ class Agent(DQN_Agent):
         self.policy_optimizer = optim.Adam(self.policy_net.parameters(), lr=self.config.lr, eps=self.config.adam_eps)
         self.value_optimizer = optim.Adam(self.q_net.parameters(), lr=self.config.lr, eps=self.config.adam_eps)
 
+        if self.config.entropy_tuning is True:
+            self.target_entropy = -torch.prod(torch.Tensor(env.action_space.shape).to(self.device)).item()
+            self.log_entropy_coef = torch.zeros(1, requires_grad=True, device=self.device)
+            self.config.entropy_coef = self.log_entropy_coef.exp()
+            self.entropy_optim = optim.Adam([self.log_entropy_coef], lr=self.config.lr)
+
         self.value_loss_fun = torch.nn.MSELoss(reduction='none')
 
         self.declare_memory()
@@ -154,7 +160,16 @@ class Agent(DQN_Agent):
             self.tb_writer.add_scalar(
                 'Loss/Policy Loss', policy_loss.detach().item(), tstep)
 
-        return policy_loss
+        return policy_loss, log_probs
+
+    def compute_entropy_loss(self, action_log_probs, tstep):
+        entropy_loss = -(self.log_entropy_coef * (action_log_probs + self.target_entropy).detach()).mean()
+
+        with torch.no_grad():
+            self.tb_writer.add_scalar(
+                'Loss/Policy Loss', entropy_loss.detach().item(), tstep)
+
+        return entropy_loss
 
     def compute_loss(self, batch_vars, tstep):
         # First run one gradient descent step for Q1 and Q2
@@ -170,15 +185,24 @@ class Agent(DQN_Agent):
 
         # Next run one gradient descent step for pi.
         self.policy_optimizer.zero_grad()
-        loss_pi = self.compute_policy_loss(batch_vars, tstep)
+        loss_pi, action_log_probs = self.compute_policy_loss(batch_vars, tstep)
         loss_pi.backward()
         self.policy_optimizer.step()
+
+        loss_entropy = torch.zeros((1,)).to(self.device)
+        if self.config.entropy_tuning:
+            self.entropy_optim.zero_grad()
+            loss_entropy = self.compute_entropy_loss(action_log_probs, tstep)
+            loss_entropy.backward()
+            self.entropy_optim.step()
+
+            self.config.entropy_coef = self.log_entropy_coef.exp()
 
         # Unfreeze Q-networks so you can optimize it at next DDPG step.
         for p in self.q_net.parameters():
             p.requires_grad = True
 
-        return loss_pi.detach().cpu().item() + loss_q.detach().cpu().item()
+        return loss_pi.detach().cpu().item() + loss_q.detach().cpu().item() + loss_entropy.detach().cpu().item()
 
     def update_(self, tstep=0):
         if tstep < self.config.learn_start:
