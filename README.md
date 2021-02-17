@@ -99,11 +99,13 @@ python train.py --algo sac --env-name HalfCheetah-v2 --gamma 0.99 --polyak-coef 
 ## Requirements: 
 
 * Python>=3.6
-* Numpy 
+* numpy
+* scipy
 * matplotlib
-* Gym 
-* Pytorch>=1.3.0
-* OpenCV 
+* notebook
+* gym 
+* pytorch>=1.3.0
+* openCV 
 * baselines
 * tensorboard
 
