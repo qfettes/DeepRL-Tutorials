@@ -100,9 +100,6 @@ class Agent(DQN_Agent):
 
     def get_action(self, s, eps):
         with torch.no_grad():
-            if self.first_action:
-                self.add_graph(s)
-
             if np.random.random() > eps or self.config.noisy_nets:
                 X = torch.from_numpy(s).to(self.device).to(
                     torch.float).view((-1,)+self.num_feats)

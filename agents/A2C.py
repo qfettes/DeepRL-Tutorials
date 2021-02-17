@@ -53,8 +53,6 @@ class Agent(BaseAgent):
         self.entropy_losses = []
         self.policy_losses = []
 
-        self.first_action = True
-
         self.training_priors()
 
     def declare_networks(self):
@@ -74,9 +72,6 @@ class Agent(BaseAgent):
         self.last_100_rewards = deque(maxlen=100)
 
     def get_action(self, s, states, masks, deterministic=False):
-        if self.first_action:
-            self.add_graph(s, states, masks)
-
         logits, values, states = self.policy_value_net(s, states, masks)
 
         # TODO: clean this up
@@ -194,12 +189,6 @@ class Agent(BaseAgent):
                     'Policy/Sigma Norm', sigma_norm, tstep)
 
         return value_loss.item(), action_loss.item(), dist_entropy.item(), dynamics_loss
-
-    def add_graph(self, inp, states, masks):
-        with torch.no_grad():
-            self.tb_writer.add_graph(
-                self.policy_value_net, (inp, states, masks))
-            self.first_action = False
 
     def step(self, current_timestep, step=0):
         with torch.no_grad():

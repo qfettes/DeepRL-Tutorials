@@ -1,13 +1,11 @@
 
 # TODO: add arg to control type of noise in noisy nets
 # TODO: efficiency for priority replay functions
-# TODO: fix computation graph for recurrent a2c
 # TODO: add hparams to tensorboard
 # TODO: add video to tensorboard
 # TODO: add inference mode
 # TODO: add random act for all algos
 # TODO: remove baselines dependency
-# TODO: remove the add_graph garbage
 # TODO: convert hyperparams to dict
 # TODO: standardize command line arg names with the config names
 # TODO: fix noisy nets in SAC
@@ -171,7 +169,7 @@ parser.add_argument('--value-loss-coef', type=float, default=0.5,
 parser.add_argument('--entropy-coef', type=float, default=0.01,
                     help='entropy term coefficient for pg methods (default: 0.01)')
 parser.add_argument('--entropy-tuning', action='store_true', default=False,
-                    help='Tune entropy coefficient when using SAC by learning.')
+                    help='[SAC ONLY] Automatically tune entropy-coef. Ignores input to --entropy-coef (default: False)')
 
 # GAE Controls
 parser.add_argument('--enable-gae', action='store_true', default=False,

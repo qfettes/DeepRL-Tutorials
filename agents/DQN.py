@@ -47,8 +47,6 @@ class Agent(BaseAgent):
         self.update_count = 0
         self.nstep_buffer = []
 
-        self.first_action = True
-
         self.training_priors()
 
     def declare_networks(self):
@@ -91,6 +89,9 @@ class Agent(BaseAgent):
         self.observations = self.envs.reset()
 
     def append_to_replay(self, s, a, r, s_, t):
+        assert(all(s.shape[0] == other.shape[0] for other in (a, r, s_, t))), \
+            f"First dim of s {s.shape}, a {a.shape}, r {r.shape}, s_ {s_.shape}, t {t.shape} must be equal."
+
         # TODO: Naive. This is implemented like rainbow; however, true nstep
         # q learning requires off-policy correction
         self.nstep_buffer.append([s, a, r, s_, t])
@@ -119,12 +120,12 @@ class Agent(BaseAgent):
             self.config.batch_size, tstep)
         batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values = data
 
-        batch_state = torch.from_numpy(batch_state).to(
-            self.device).to(torch.float)
-        batch_action = torch.from_numpy(batch_action).to(
-            self.device).to(torch.long).unsqueeze(dim=1)
-        batch_reward = torch.from_numpy(batch_reward).to(
-            self.device).to(torch.float).unsqueeze(dim=1)
+        batch_state = torch.from_numpy(batch_state).to(self.device).to(torch.float)
+        # don't declare type of actions: this method is re-used for disrete and continuous action spaces
+        #   it needs to be flexible to both types
+        batch_action = torch.from_numpy(batch_action).to(self.device)
+        batch_action = batch_action.unsqueeze(dim=1) if len(batch_action.shape) == 1 else batch_action
+        batch_reward = torch.from_numpy(batch_reward).to(torch.float).to(self.device).unsqueeze(dim=1)
 
         non_final_mask = torch.from_numpy(non_final_mask).to(
             self.device).to(torch.bool)
@@ -136,8 +137,8 @@ class Agent(BaseAgent):
             weights = torch.from_numpy(weights).to(
                 self.device).to(torch.float).view(-1, 1)
 
-        batch_state /= 255.0
-        non_final_next_states /= 255.0
+        batch_state /= self.config.state_norm
+        non_final_next_states /= self.config.state_norm
 
         return batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights
 
@@ -235,13 +236,10 @@ class Agent(BaseAgent):
 
     def get_action(self, s, eps=0.1):
         with torch.no_grad():
-            if self.first_action:
-                self.add_graph(s)
-
             if np.random.random() > eps or self.config.noisy_nets:
                 X = torch.from_numpy(s).to(self.device).to(
                     torch.float).view((-1,)+self.num_feats)
-                X /= 255.0
+                X /= self.config.state_norm
 
                 self.q_net.sample_noise()
                 return torch.argmax(self.q_net(X), dim=1).cpu().numpy()
@@ -254,13 +252,6 @@ class Agent(BaseAgent):
             self.config.target_net_update_freq)
         if self.update_count == 0:
             self.target_q_net.load_state_dict(self.q_net.state_dict())
-
-    def add_graph(self, inp):
-        with torch.no_grad():
-            X = torch.from_numpy(inp).to(self.device).to(
-                torch.float).view((-1,)+self.num_feats)
-            self.tb_writer.add_graph(self.q_net, X)
-            self.first_action = False
 
     def reset_hx(self, idx):
         pass

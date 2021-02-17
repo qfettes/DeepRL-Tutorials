@@ -5,7 +5,6 @@
 * Rename each agent class from "Agent" to something more descriptive
 * Remove baselines dependency
 * Fix scaling in policy gradient methods. Values need to be scaled 0-1
-* Remove the if(self.first_action) garbage
 * Noisy Nets for Exploration isn't actually implemented for all(?) policy gradient algorithms
 * Takes uniform random actions at start of every training session in SAC: My implementation needs to add this
 

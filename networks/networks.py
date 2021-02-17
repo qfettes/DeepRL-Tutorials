@@ -425,186 +425,191 @@ class ActorCritic(nn.Module):
 LOG_STD_MAX = 2
 LOG_STD_MIN = -20
 
-def mlp(sizes, activation, output_activation=nn.Identity):
-    layers = []
-    for j in range(len(sizes)-1):
-        act = activation if j < len(sizes)-2 else output_activation
-        layers += [nn.Linear(sizes[j], sizes[j+1]), act()]
-    return nn.Sequential(*layers)
+# def mlp(sizes, activation, output_activation=nn.Identity):
+#     layers = []
+#     for j in range(len(sizes)-1):
+#         act = activation if j < len(sizes)-2 else output_activation
+#         layers += [nn.Linear(sizes[j], sizes[j+1]), act()]
+#     return nn.Sequential(*layers)
 
-class SquashedGaussianMLPActor(nn.Module):
+# class SquashedGaussianMLPActor(nn.Module):
 
-    def __init__(self, obs_dim, act_dim, hidden_sizes, activation, act_limit):
-        super().__init__()
-        self.net = mlp([obs_dim] + list(hidden_sizes), activation, activation)
-        self.mu_layer = nn.Linear(hidden_sizes[-1], act_dim)
-        self.log_std_layer = nn.Linear(hidden_sizes[-1], act_dim)
-        self.act_limit = act_limit
-
-    def forward(self, obs, deterministic=False, with_logprob=True):
-        net_out = self.net(obs)
-        mu = self.mu_layer(net_out)
-        log_std = self.log_std_layer(net_out)
-        log_std = torch.clamp(log_std, LOG_STD_MIN, LOG_STD_MAX)
-        std = torch.exp(log_std)
-
-        # Pre-squash distribution and sample
-        pi_distribution = Normal(mu, std)
-        if deterministic:
-            # Only used for evaluating policy at test time.
-            pi_action = mu
-        else:
-            pi_action = pi_distribution.rsample()
-
-        if with_logprob:
-            # Compute logprob from Gaussian, and then apply correction for Tanh squashing.
-            # NOTE: The correction formula is a little bit magic. To get an understanding 
-            # of where it comes from, check out the original SAC paper (arXiv 1801.01290) 
-            # and look in appendix C. This is a more numerically-stable equivalent to Eq 21.
-            # Try deriving it yourself as a (very difficult) exercise. :)
-            logp_pi = pi_distribution.log_prob(pi_action).sum(axis=-1, keepdim=True)
-            logp_pi -= (2*(np.log(2) - pi_action - F.softplus(-2*pi_action))).sum(axis=1, keepdim=True)
-            # logp_pi = pi_distribution.log_prob(pi_action).sum(axis=-1)
-            # logp_pi -= (2*(np.log(2) - pi_action - F.softplus(-2*pi_action))).sum(axis=1)
-        else:
-            logp_pi = None
-
-        pi_action = torch.tanh(pi_action)
-        pi_action = self.act_limit * pi_action
-
-        return pi_action, logp_pi
-
-
-class MLPQFunction(nn.Module):
-
-    def __init__(self, obs_dim, act_dim, hidden_sizes, activation):
-        super().__init__()
-        self.q = mlp([obs_dim + act_dim] + list(hidden_sizes) + [1], activation)
-
-    def forward(self, obs, act):
-        q = self.q(torch.cat([obs, act], dim=-1))
-        # return torch.squeeze(q, -1) # Critical to ensure q has right shape.
-        return q
-
-class MLPActorCritic(nn.Module):
-
-    def __init__(self, observation_space, action_space, hidden_sizes=(256,256),
-                 activation=nn.ReLU):
-        super().__init__()
-
-        obs_dim = observation_space.shape[0]
-        act_dim = action_space.shape[0]
-        act_limit = action_space.high[0]
-
-        # build policy and value functions
-        self.pi = SquashedGaussianMLPActor(obs_dim, act_dim, hidden_sizes, activation, act_limit)
-        self.q1 = MLPQFunction(obs_dim, act_dim, hidden_sizes, activation)
-        self.q2 = MLPQFunction(obs_dim, act_dim, hidden_sizes, activation)
-
-    def act(self, obs, deterministic=False):
-        with torch.no_grad():
-            a, _ = self.pi(obs, deterministic, False)
-            return a.cpu().numpy()
-
-# class Actor_SAC(nn.Module):
-#     def __init__(self, input_shape, action_space, hidden_dim=256, noisy = False, sigma_init=0.5):
+#     def __init__(self, obs_dim, act_dim, hidden_sizes, activation, act_limit):
 #         super().__init__()
-
-#         self.noisy = noisy
-#         num_outputs = action_space.shape[0]
-
-#         self.action_scale = torch.tensor((action_space.high - action_space.low) / 2., dtype=torch.float)
-#         self.action_bias = torch.tensor((action_space.high + action_space.low) / 2., dtype=torch.float)
-
-#         self.fc1 = nn.Linear(input_shape[0], hidden_dim) if not self.noisy else NoisyLinear(input_shape[0], hidden_dim, sigma_init)
-#         self.fc2 = nn.Linear(hidden_dim, hidden_dim) if not self.noisy else NoisyLinear(hidden_dim, hidden_dim, sigma_init)
-
-#         self.actor_mean = nn.Linear(hidden_dim, num_outputs) if not self.noisy else NoisyLinear(hidden_dim, num_outputs, sigma_init)
-#         self.actor_log_std = nn.Linear(hidden_dim, num_outputs) if not self.noisy else NoisyLinear(hidden_dim, num_outputs, sigma_init)
-
-#         if self.noisy:
-#             self.sample_noise()
+#         self.net = mlp([obs_dim] + list(hidden_sizes), activation, activation)
+#         self.mu_layer = nn.Linear(hidden_sizes[-1], act_dim)
+#         self.log_std_layer = nn.Linear(hidden_sizes[-1], act_dim)
+#         self.act_limit = act_limit
 
 #     def forward(self, obs, deterministic=False, with_logprob=True):
-#         x = F.relu(self.fc1(obs))
-#         x = F.relu(self.fc2(x))
-
-#         mean = self.actor_mean(x)
-#         log_std = self.actor_log_std(x)
+#         net_out = self.net(obs)
+#         mu = self.mu_layer(net_out)
+#         log_std = self.log_std_layer(net_out)
 #         log_std = torch.clamp(log_std, LOG_STD_MIN, LOG_STD_MAX)
 #         std = torch.exp(log_std)
 
 #         # Pre-squash distribution and sample
-#         pi_distribution = Normal(mean, std)
+#         pi_distribution = Normal(mu, std)
 #         if deterministic:
 #             # Only used for evaluating policy at test time.
-#             action = mean
+#             pi_action = mu
 #         else:
-#             action = pi_distribution.rsample()
+#             pi_action = pi_distribution.rsample()
 
 #         if with_logprob:
 #             # Compute logprob from Gaussian, and then apply correction for Tanh squashing.
-#             # See appendix C of original paper
-#             logprob = pi_distribution.log_prob(action).sum(axis=-1, keepdim=True)
-#             logprob -= (2*(np.log(2) - action - F.softplus(-2*action))).sum(axis=1, keepdim=True)
+#             # NOTE: The correction formula is a little bit magic. To get an understanding 
+#             # of where it comes from, check out the original SAC paper (arXiv 1801.01290) 
+#             # and look in appendix C. This is a more numerically-stable equivalent to Eq 21.
+#             # Try deriving it yourself as a (very difficult) exercise. :)
+#             logp_pi = pi_distribution.log_prob(pi_action).sum(axis=-1, keepdim=True)
+#             logp_pi -= (2*(np.log(2) - pi_action - F.softplus(-2*pi_action))).sum(axis=1, keepdim=True)
+#             # logp_pi = pi_distribution.log_prob(pi_action).sum(axis=-1)
+#             # logp_pi -= (2*(np.log(2) - pi_action - F.softplus(-2*pi_action))).sum(axis=1)
 #         else:
-#             logprob = None
+#             logp_pi = None
 
-#         action = torch.tanh(action)
-#         action = self.action_scale * action + self.action_bias
+#         pi_action = torch.tanh(pi_action)
+#         pi_action = self.act_limit * pi_action
 
-#         return action, logprob
-
-#     def sample_noise(self):
-#         if self.noisy:
-#             self.fc1.sample_noise()
-#             self.fc2.sample_noise()
-#             self.actor_mean.sample_noise()
-#             self.actor_log_std.sample_noise()
-
-#     def to(self, device):
-#         self.action_scale = self.action_scale.to(device)
-#         self.action_bias = self.action_bias.to(device)
-#         super().to(device)
+#         return pi_action, logp_pi
 
 
+# class MLPQFunction(nn.Module):
 
-# class DQN_SAC(nn.Module):
-#     def __init__(self, input_shape, action_space, hidden_dim=256, noisy=False, sigma_init=0.5):
+#     def __init__(self, obs_dim, act_dim, hidden_sizes, activation):
+#         super().__init__()
+#         self.q = mlp([obs_dim + act_dim] + list(hidden_sizes) + [1], activation)
+
+#     def forward(self, obs, act):
+#         q = self.q(torch.cat([obs, act], dim=-1))
+#         # return torch.squeeze(q, -1) # Critical to ensure q has right shape.
+#         return q
+
+# class MLPActorCritic(nn.Module):
+
+#     def __init__(self, observation_space, action_space, hidden_sizes=(256,256),
+#                  activation=nn.ReLU):
 #         super().__init__()
 
-#         self.noisy = noisy
+#         obs_dim = observation_space.shape[0]
+#         act_dim = action_space.shape[0]
+#         act_limit = action_space.high[0]
 
-#         num_inputs = input_shape[0] + action_space.shape[0]
+#         # build policy and value functions
+#         self.pi = SquashedGaussianMLPActor(obs_dim, act_dim, hidden_sizes, activation, act_limit)
+#         self.q1 = MLPQFunction(obs_dim, act_dim, hidden_sizes, activation)
+#         self.q2 = MLPQFunction(obs_dim, act_dim, hidden_sizes, activation)
 
-#         # Q1 architecture
-#         self.linear1 = nn.Linear(num_inputs, hidden_dim) if not self.noisy else NoisyLinear(num_inputs, hidden_dim, sigma_init)
-#         self.linear2 = nn.Linear(hidden_dim, hidden_dim) if not self.noisy else NoisyLinear(hidden_dim, hidden_dim, sigma_init)
-#         self.linear3 = nn.Linear(hidden_dim, 1) if not self.noisy else NoisyLinear(hidden_dim, 1, sigma_init)
+#     def act(self, obs, deterministic=False):
+#         with torch.no_grad():
+#             a, _ = self.pi(obs, deterministic, False)
+#             return a.cpu().numpy()
 
-#         # Q2 architecture
-#         self.linear4 = nn.Linear(num_inputs, hidden_dim) if not self.noisy else NoisyLinear(num_inputs, hidden_dim, sigma_init)
-#         self.linear5 = nn.Linear(hidden_dim, hidden_dim) if not self.noisy else NoisyLinear(hidden_dim, hidden_dim, sigma_init)
-#         self.linear6 = nn.Linear(hidden_dim, 1) if not self.noisy else NoisyLinear(hidden_dim, 1, sigma_init)
+class Actor_SAC(nn.Module):
+    def __init__(self, input_shape, action_space, hidden_dim=256, noisy = False, sigma_init=0.5):
+        super().__init__()
 
-#     def forward(self, state, action):
-#         xu = torch.cat([state, action], dim=-1)
+        self.noisy = noisy
+        num_outputs = action_space.shape[0]
+
+        self.action_scale = torch.tensor((action_space.high - action_space.low) / 2., dtype=torch.float)
+        self.action_bias = torch.tensor((action_space.high + action_space.low) / 2., dtype=torch.float)
+
+        self.fc1 = nn.Linear(input_shape[0], hidden_dim) if not self.noisy else NoisyLinear(input_shape[0], hidden_dim, sigma_init)
+        self.fc2 = nn.Linear(hidden_dim, hidden_dim) if not self.noisy else NoisyLinear(hidden_dim, hidden_dim, sigma_init)
+
+        self.actor_mean = nn.Linear(hidden_dim, num_outputs) if not self.noisy else NoisyLinear(hidden_dim, num_outputs, sigma_init)
+        self.actor_log_std = nn.Linear(hidden_dim, num_outputs) if not self.noisy else NoisyLinear(hidden_dim, num_outputs, sigma_init)
+
+        if self.noisy:
+            self.sample_noise()
+
+    def forward(self, obs, deterministic=False, with_logprob=True):
+        x = F.relu(self.fc1(obs))
+        x = F.relu(self.fc2(x))
+
+        mean = self.actor_mean(x)
+        log_std = self.actor_log_std(x)
+        log_std = torch.clamp(log_std, LOG_STD_MIN, LOG_STD_MAX)
+        std = torch.exp(log_std)
+
+        # Pre-squash distribution and sample
+        pi_distribution = Normal(mean, std)
+        if deterministic:
+            # Only used for evaluating policy at test time.
+            action = mean
+        else:
+            action = pi_distribution.rsample()
+
+        if with_logprob:
+            # Compute logprob from Gaussian, and then apply correction for Tanh squashing.
+            # See appendix C of original paper
+            logprob = pi_distribution.log_prob(action).sum(axis=-1, keepdim=True)
+            logprob -= (2*(np.log(2) - action - F.softplus(-2*action))).sum(axis=1, keepdim=True)
+        else:
+            logprob = None
+
+        action = torch.tanh(action)
+        action = self.action_scale * action + self.action_bias
+
+        return action, logprob
+
+    def act(self, obs, deterministic=False):
+        with torch.no_grad():
+            a, _ = self.forward(obs, deterministic, False)
+            return a.cpu().numpy()
+
+    def sample_noise(self):
+        if self.noisy:
+            self.fc1.sample_noise()
+            self.fc2.sample_noise()
+            self.actor_mean.sample_noise()
+            self.actor_log_std.sample_noise()
+
+    def to(self, device):
+        self.action_scale = self.action_scale.to(device)
+        self.action_bias = self.action_bias.to(device)
+        super().to(device)
+
+
+
+class DQN_SAC(nn.Module):
+    def __init__(self, input_shape, action_space, hidden_dim=256, noisy=False, sigma_init=0.5):
+        super().__init__()
+
+        self.noisy = noisy
+
+        num_inputs = input_shape[0] + action_space.shape[0]
+
+        # Q1 architecture
+        self.linear1 = nn.Linear(num_inputs, hidden_dim) if not self.noisy else NoisyLinear(num_inputs, hidden_dim, sigma_init)
+        self.linear2 = nn.Linear(hidden_dim, hidden_dim) if not self.noisy else NoisyLinear(hidden_dim, hidden_dim, sigma_init)
+        self.linear3 = nn.Linear(hidden_dim, 1) if not self.noisy else NoisyLinear(hidden_dim, 1, sigma_init)
+
+        # Q2 architecture
+        self.linear4 = nn.Linear(num_inputs, hidden_dim) if not self.noisy else NoisyLinear(num_inputs, hidden_dim, sigma_init)
+        self.linear5 = nn.Linear(hidden_dim, hidden_dim) if not self.noisy else NoisyLinear(hidden_dim, hidden_dim, sigma_init)
+        self.linear6 = nn.Linear(hidden_dim, 1) if not self.noisy else NoisyLinear(hidden_dim, 1, sigma_init)
+
+    def forward(self, state, action):
+        xu = torch.cat([state, action], dim=-1)
         
-#         x1 = F.relu(self.linear1(xu))
-#         x1 = F.relu(self.linear2(x1))
-#         x1 = self.linear3(x1)
+        x1 = F.relu(self.linear1(xu))
+        x1 = F.relu(self.linear2(x1))
+        x1 = self.linear3(x1)
 
-#         x2 = F.relu(self.linear4(xu))
-#         x2 = F.relu(self.linear5(x2))
-#         x2 = self.linear6(x2)
+        x2 = F.relu(self.linear4(xu))
+        x2 = F.relu(self.linear5(x2))
+        x2 = self.linear6(x2)
 
-#         return x1, x2
+        return x1, x2
 
-#     def sample_noise(self):
-#         if self.noisy:
-#             self.linear1.sample_noise()
-#             self.linear2.sample_noise()
-#             self.linear3.sample_noise()
-#             self.linear4.sample_noise()
-#             self.linear5.sample_noise()
-#             self.linear6.sample_noise()
+    def sample_noise(self):
+        if self.noisy:
+            self.linear1.sample_noise()
+            self.linear2.sample_noise()
+            self.linear3.sample_noise()
+            self.linear4.sample_noise()
+            self.linear5.sample_noise()
+            self.linear6.sample_noise()
