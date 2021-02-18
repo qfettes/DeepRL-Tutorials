@@ -29,7 +29,7 @@ import random
 import os
 import argparse
 import gym
-import pybullet_envs
+import pybulletgym
 
 gym.logger.set_level(40)
 
