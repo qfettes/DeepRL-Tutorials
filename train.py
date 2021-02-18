@@ -11,6 +11,9 @@
 # TODO: fix noisy nets in SAC
 # TODO: change target network copying to use deepcopy everywhere
 # TODO: move/add parameter freezing to declare network for target nets
+# TODO: fix inference hparam
+# TODO: fix render hparam
+# TODO: fix SAC hparam
 
 from utils.wrappers import make_envs_general
 from utils.plot import plot_reward
@@ -43,13 +46,13 @@ parser.add_argument('--seed', type=int, default=None, help='random seed. \
                         Note if seed is None then it will be randomly \
                         generated (default: None)')
 parser.add_argument('--inference', action='store_true', default=False,
-                    help='Inference saved model')
+                    help='[NOT WORKING] Inference saved model.')
 parser.add_argument('--print-threshold', type=int, default=1000,
                     help='print progress and plot every print-threshold timesteps (default: 1000)')
 parser.add_argument('--save-threshold', type=int, default=100000,
                     help='save nn params every save-threshold timesteps (default: 100000)')
 parser.add_argument('--render', action='store_true', default=False,
-                    help='Render the inference epsiode (default: False')
+                    help='[NOT WORKING] Render the inference epsiode (default: False')
 parser.add_argument('--logdir', default='./results/train/',
                                         help='algorithm to use (default: ./results/train)')
 parser.add_argument('--correct-time-limits', action='store_true', default=False,
@@ -57,14 +60,14 @@ parser.add_argument('--correct-time-limits', action='store_true', default=False,
 
 # Preprocessing
 parser.add_argument('--stack-frames', type=int, default=4,
-                    help='Number of frames to stack (default: 4)')
+                    help='[Atari Only] Number of frames to stack (default: 4)')
 parser.add_argument('--adaptive-repeat', nargs='+', type=int, default=[4],
-                    help='Possible action repeat values (default: [4])')
+                    help='[Atari Only] Possible action repeat values (default: [4])')
 parser.add_argument('--state-norm', type=float, default=255.0,
                     help='Normalization constant for states. Set to None if normalization \
                         is handled elsewhere (wrappers) or unneeded (default: 255.0)')
 parser.add_argument('--sticky-actions', type=float, default=0.,
-                    help='Sticky action probability. I.e. the probability that \
+                    help='[Atari Only] Sticky action probability. I.e. the probability that \
                         input is ignored and the previous action is repeated \
                         (default: 0.)')
 
@@ -72,9 +75,9 @@ parser.add_argument('--sticky-actions', type=float, default=0.,
 parser.add_argument('--max-tsteps', type=int, default=2e7,
                     help='Maximimum number of timsteps to train (default: 2e7)')
 parser.add_argument('--learn-start', type=int, default=8e4,
-                    help='tstep to start updating for dqn-type methods only (default: 80000)')
+                    help='tstep to start updating (default: 80000)')
 parser.add_argument('--random-act', type=int, default=1e4,
-                    help='Take uniform random actions until this tstep (default: 10000)')
+                    help='[SAC Only] Take uniform random actions until this tstep (default: 10000)')
 parser.add_argument('--nenvs', type=int, default=1,
                     help='number of parallel environments executing (default: 1)')
 parser.add_argument('--update-freq', type=int, default=4,
@@ -83,20 +86,16 @@ parser.add_argument('--lr', type=float, default=1e-4,
                     help='learning rate (default: 1e-4)')
 parser.add_argument('--anneal-lr', action='store_true', default=False,
                     help='anneal lr from start value to 0 throught training')
-parser.add_argument('--max-grad-norm', type=float, default=40.0,
+parser.add_argument('--grad-norm-max', type=float, default=40.0,
                     help='max norm of gradients (default: 40.0)')
 parser.add_argument('--gamma', type=float, default=0.99,
                     help='discount factor for rewards (default: 0.99)')
 
-# RMSProp Parameters
+# Optimizer Parameters
 parser.add_argument('--rms-alpha', type=float, default=0.99,
-                    help='alpha param of rmsprop, used in a2c (default: 0.99)')
-parser.add_argument('--rms-eps', type=float, default=1e-5,
-                    help='epsilon param of rmsprop, used in a2c (default: 1e-5)')
-
-# Adam Parameters
-parser.add_argument('--adam-eps', type=float, default=1e-4,
-                    help='epsilon param of adam (default: 1e-4)')
+                    help='[A2C ONLY] alpha param of rmsprop, used in a2c (default: 0.99)')
+parser.add_argument('--optim-eps', type=float, default=1e-4,
+                    help='epsilon param of optimizer (default: 1e-4)')
 
 # Replay Memory
 parser.add_argument('--replay-size', type=int, default=1e6,
@@ -104,40 +103,41 @@ parser.add_argument('--replay-size', type=int, default=1e6,
 parser.add_argument('--batch-size', type=int, default=32,
                     help='Size of minibatches drawn from replay buffer (default: 32)')
 parser.add_argument('--tnet-update', type=int, default=4e4,
-                    help='Num Steps between target net updates (default: 40000)')
+                    help='[Doesn\'t affect SAC] Num Steps between target net updates (default: 40000)')
 parser.add_argument('--polyak-coef', type=float, default=0.995,
-                    help='\theta_targ <- polyak_coef*\theta_targ + (1.-polyak_coef)*\theta while using polyak averaging in SAC (default: 0.995)')
+                    help='[SAC ONLY] \theta_targ <- polyak_coef*\theta_targ + (1.-polyak_coef)*\theta\
+                         while using polyak averaging in SAC (default: 0.995)')
 
 # Epsilon Variables
 parser.add_argument('--eps-start', type=float, default=1.0,
-                    help='starting value of epsilon (default: 1.0)')
+                    help='[\eps-greedy algs only] starting value of epsilon (default: 1.0)')
 parser.add_argument('--eps-end', nargs='+', type=float, default=[0.1, 0.01],
-                    help='ending value of epsilon for each part of the peicewise function (default: [0.1, 0.01])')
+                    help='[\eps-greedy algs only] ending value of epsilon for each part of the peicewise function (default: [0.1, 0.01])')
 parser.add_argument('--eps-decay', nargs='+', type=float, default=[0.05, 0.5],
-                    help='Percent of training at which each eps-end value will be reached via linear decay\n. Choose \
+                    help='[\eps-greedy algs only] Percent of training at which each eps-end value will be reached via linear decay\n. Choose \
                         a single value > 1.0 to switch to an exponential decay schedule (default: [0.05, 0.5])')
 
 # Nstep
 parser.add_argument('--n-steps', type=int, default=1,
-                    help='Value of N used in N-Step Q-Learning (default: 1)')
+                    help='[Exp-Replay Only] Value of N used in N-Step Q-Learning (default: 1)')
 
 # Double DQN
 parser.add_argument('--double-dqn', action='store_true', default=False,
-                    help='Use double learning with dqn')
+                    help='[DQN Only] Use double learning with dqn')
 
 # Priority Replay
 parser.add_argument('--priority-replay', action='store_true', default=False,
-                    help='Use prioritized replay with dqn')
+                    help='[Replay Only] Use prioritized replay with dqn')
 parser.add_argument('--priority-alpha', type=float, default=0.6,
-                    help='Alpha value of prioritized replay (default: 0.6)')
+                    help='[Replay Only] Alpha value of prioritized replay (default: 0.6)')
 parser.add_argument('--priority-beta-start', type=float, default=0.4,
-                    help='starting value of beta in prioritized replay (default: 0.4)')
+                    help='[Replay Only] starting value of beta in prioritized replay (default: 0.4)')
 parser.add_argument('--priority-beta-steps', type=int, default=2e7,
-                    help='steps over which to anneal priority beta to 1 (default: 2e7)')
+                    help='[Replay Only] steps over which to anneal priority beta to 1 (default: 2e7)')
 
 # Dueling DQN
 parser.add_argument('--dueling-dqn', action='store_true', default=False,
-                    help='Use dueling architecture with dqn')
+                    help='[DQN Only] Use dueling architecture with dqn')
 
 # Noisy Nets
 parser.add_argument('--noisy-nets', action='store_true', default=False,
@@ -147,11 +147,11 @@ parser.add_argument('--noisy-sigma', type=float, default=0.5,
 
 # Categorical DQN
 parser.add_argument('--c51-atoms', type=int, default=51,
-                    help='Number of Atoms in categorical DQN (default: 51)')
+                    help='[C51 Only] Number of Atoms in categorical DQN (default: 51)')
 parser.add_argument('--c51-vmin', type=float, default=-10.0,
-                    help='Minimum v in C51 (default: -10.0)')
+                    help='[C51 Only] Minimum v in C51 (default: -10.0)')
 parser.add_argument('--c51-vmax', type=int, default=10.0,
-                    help='Minimum v in C51 (default: 10.0)')
+                    help='[C51 Only] Minimum v in C51 (default: 10.0)')
 
 # Quantile DQN
 
@@ -159,13 +159,13 @@ parser.add_argument('--c51-vmax', type=int, default=10.0,
 
 # Recurrent Policy Gradient
 parser.add_argument('--recurrent-policy-gradient', action='store_true', default=False,
-                    help='Activate recurrent policy for pg methods')
+                    help='[A2C-Style Only] Activate recurrent policy for pg methods')
 parser.add_argument('--gru-size', type=int, default=512,
-                    help='number of output units for main gru in pg methods (default: 512)')
+                    help='[A2C-Style Only] number of output units for main gru in pg methods (default: 512)')
 
 # A2C Controls
 parser.add_argument('--value-loss-coef', type=float, default=0.5,
-                    help='value loss coefficient for pg methods (default: 0.5)')
+                    help='[A2C-Style Only] value loss coefficient for pg methods (default: 0.5)')
 parser.add_argument('--entropy-coef', type=float, default=0.01,
                     help='entropy term coefficient for pg methods (default: 0.01)')
 parser.add_argument('--entropy-tuning', action='store_true', default=False,
@@ -173,21 +173,21 @@ parser.add_argument('--entropy-tuning', action='store_true', default=False,
 
 # GAE Controls
 parser.add_argument('--enable-gae', action='store_true', default=False,
-                    help='enable generalized advantage estimation for pg methods')
+                    help='[A2C-Style Only] enable generalized advantage estimation for pg methods')
 parser.add_argument('--gae-tau', type=float, default=0.95,
-                    help='gae parameter (default: 0.95)')
+                    help='[A2C-Style Only] gae parameter (default: 0.95)')
 
 # PPO Controls
 parser.add_argument('--ppo-epoch', type=int, default=3,
-                    help='number of ppo epochs (default: 3)')
+                    help='[PPO Only] number of ppo epochs (default: 3)')
 parser.add_argument('--ppo-mini-batch', type=int, default=4,
-                    help='number of batches for ppo (default: 4)')
+                    help='[PPO Only] number of batches for ppo (default: 4)')
 parser.add_argument('--ppo-clip-param', type=float, default=0.1,
-                    help='ppo clip parameter (default: 0.1)')
+                    help='[PPO Only] ppo clip parameter (default: 0.1)')
 parser.add_argument('--disable-ppo-clip-value', action='store_false', default=True,
-                    help='DON\'T clip value function in PPO')
+                    help='[PPO Only] DON\'T clip value function in PPO')
 parser.add_argument('--disable-ppo-clip-schedule', action='store_false', default=True,
-                    help='DON\'T linearly decay ppo clip by maximum timestep')
+                    help='[PPO Only] DON\'T linearly decay ppo clip by maximum timestep')
 
 
 def train(config, Agent, ipynb=False):
@@ -233,7 +233,7 @@ def train(config, Agent, ipynb=False):
     start = timer()
     for epoch in progress:
 
-        if config.use_lr_schedule:
+        if config.anneal_lr:
             update_linear_schedule(
                 agent.optimizer, epoch-1, max_epochs, config.lr)
 
@@ -251,7 +251,8 @@ def train(config, Agent, ipynb=False):
             if current_tstep % config.print_threshold == 0 and agent.last_100_rewards:
                 update_progress(config, progress, agent, current_tstep, start, log_dir, ipynb)
 
-        agent.update(current_tstep)
+        if current_tstep > config.learn_start:
+            agent.update(current_tstep)
 
     if(agent.last_100_rewards):
         update_progress(config, progress, agent, config.max_tsteps, start, log_dir, ipynb)
@@ -280,6 +281,13 @@ def update_progress(config, progress, agent, current_tstep, start, log_dir, ipyn
 
 if __name__ == '__main__':
     args = parser.parse_args()
+
+    # TODO: resume here. Log default parameters
+    #   record which algorithms are relevant to each parameter
+    #   for each algorithm, throw error when irrelevant parameter
+    #   is changed from default
+    # print(vars(args))
+    # exit()
 
     # Import Correct Agent
     if args.algo == 'dqn':
@@ -324,16 +332,13 @@ if __name__ == '__main__':
     config.num_envs = int(args.nenvs)
     config.update_freq = int(args.update_freq)
     config.lr = args.lr
-    config.use_lr_schedule = args.anneal_lr
-    config.grad_norm_max = args.max_grad_norm
+    config.anneal_lr = args.anneal_lr
+    config.grad_norm_max = args.grad_norm_max
     config.gamma = args.gamma
 
-    # RMSProp params
+    # Optimizer params
     config.rms_alpha = args.rms_alpha
-    config.rms_eps = args.rms_eps
-
-    # adam params
-    config.adam_eps = args.adam_eps
+    config.optim_eps = args.optim_eps
 
     # memory
     config.exp_replay_size = int(args.replay_size)

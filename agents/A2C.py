@@ -35,7 +35,7 @@ class Agent(BaseAgent):
         self.declare_networks()
 
         self.optimizer = optim.RMSprop(self.policy_value_net.parameters(
-        ), lr=self.config.lr, alpha=self.config.rms_alpha, eps=self.config.rms_eps)
+        ), lr=self.config.lr, alpha=self.config.rms_alpha, eps=self.config.optim_eps)
 
         # move to correct device
         self.policy_value_net = self.policy_value_net.to(self.device)
@@ -246,9 +246,9 @@ class Agent(BaseAgent):
                                          self.rollouts.states[-1],
                                          self.rollouts.masks[-1])
 
-        if current_tstep >= self.config.learn_start:
-            value_loss, action_loss, dist_entropy, dynamics_loss = self.update_(
-                self.rollouts, next_value, current_tstep)
+        
+        value_loss, action_loss, dist_entropy, dynamics_loss = self.update_(
+            self.rollouts, next_value, current_tstep)
 
         self.rollouts.after_update()
 

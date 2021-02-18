@@ -1,6 +1,10 @@
 import pickle, os, glob, math
 
 def save_config(config, base_dir):
+    print(f'{" Hyperparameters " :*^50}')
+    for var, value in vars(config).items():
+        print(f'{colorize(f"{var}", color="blue", bold=True) :-<36}' + f'{f"{value}" :->25}')
+    print(f'{" End Hyperparameters " :*^50}')
     pickle.dump(config, open(os.path.join(base_dir, 'config.dump'), 'wb'))
 
 def update_linear_schedule(optimizer, epoch, total_num_epochs, initial_lr):
@@ -80,4 +84,34 @@ class ExponentialSchedule:
         self.decay = decay
 
     def __call__(self, tstep):
-        return self.end + (self.start - self.end) * math.exp(-1. * tstep / self.decay)            
+        return self.end + (self.start - self.end) * math.exp(-1. * tstep / self.decay)
+
+
+# Borrowed from OpenAI SpinningUp
+#   https://github.com/openai/spinningup
+color2num = dict(
+    gray=30,
+    red=31,
+    green=32,
+    yellow=33,
+    blue=34,
+    magenta=35,
+    cyan=36,
+    white=37,
+    crimson=38
+)
+
+# Borrowed from OpenAI SpinningUp
+#   https://github.com/openai/spinningup
+def colorize(string, color, bold=False, highlight=False):
+    """
+    Colorize a string.
+
+    This function was originally written by John Schulman.
+    """
+    attr = []
+    num = color2num[color]
+    if highlight: num += 10
+    attr.append(str(num))
+    if bold: attr.append('1')
+    return '\x1b[%sm%s\x1b[0m' % (';'.join(attr), string)      

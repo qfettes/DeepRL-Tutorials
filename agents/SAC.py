@@ -43,14 +43,14 @@ class Agent(DQN_Agent):
 
         self.declare_networks()
 
-        self.policy_optimizer = optim.Adam(self.policy_net.parameters(), lr=self.config.lr, eps=self.config.adam_eps)
-        self.value_optimizer = optim.Adam(self.q_net.parameters(), lr=self.config.lr, eps=self.config.adam_eps)
+        self.policy_optimizer = optim.Adam(self.policy_net.parameters(), lr=self.config.lr, eps=self.config.optim_eps)
+        self.value_optimizer = optim.Adam(self.q_net.parameters(), lr=self.config.lr, eps=self.config.optim_eps)
 
         if self.config.entropy_tuning is True:
             self.target_entropy = -torch.prod(torch.Tensor(env.action_space.shape).to(self.device)).item()
             self.log_entropy_coef = torch.zeros(1, requires_grad=True, device=self.device)
             self.config.entropy_coef = self.log_entropy_coef.exp()
-            self.entropy_optim = optim.Adam([self.log_entropy_coef], lr=self.config.lr)
+            self.entropy_optimizer = optim.Adam([self.log_entropy_coef], lr=self.config.lr)
 
         self.value_loss_fun = torch.nn.MSELoss(reduction='none')
 
@@ -70,6 +70,9 @@ class Agent(DQN_Agent):
                 changed from its default value to {self.config.adaptive_repeat}"
         assert(not self.config.dueling_dqn), "Dueling DQN is not supported with SAC"
         assert(not self.config.recurrent_policy_gradient), "GRU is not yet supported with SAC"
+        assert(not self.config.anneal_lr), "Annealing LR not supported with SAC"
+
+        
 
     def declare_networks(self):
         self.policy_net = Actor_SAC(self.num_feats, self.action_space, hidden_dim=256, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init)
@@ -148,8 +151,10 @@ class Agent(DQN_Agent):
         batch_state, _, _, _, _, _, _, _ = batch_vars
 
         # Compute policy loss
+        self.policy_net.sample_noise()
         actions, log_probs = self.policy_net(batch_state)
 
+        self.q_net.sample_noise()
         q_val1, q_val2 = self.q_net(batch_state, actions)
         q_val = torch.min(q_val1, q_val2)
 
@@ -176,6 +181,8 @@ class Agent(DQN_Agent):
         self.value_optimizer.zero_grad()
         loss_q = self.compute_value_loss(batch_vars, tstep)
         loss_q.backward()
+        torch.nn.utils.clip_grad_norm_(
+            self.q_net.parameters(), self.config.grad_norm_max)
         self.value_optimizer.step()
 
         # Freeze Q-networks so you don't waste computational effort 
@@ -187,14 +194,18 @@ class Agent(DQN_Agent):
         self.policy_optimizer.zero_grad()
         loss_pi, action_log_probs = self.compute_policy_loss(batch_vars, tstep)
         loss_pi.backward()
+        torch.nn.utils.clip_grad_norm_(
+            self.policy_net.parameters(), self.config.grad_norm_max)
         self.policy_optimizer.step()
 
         loss_entropy = torch.zeros((1,)).to(self.device)
         if self.config.entropy_tuning:
-            self.entropy_optim.zero_grad()
+            self.entropy_optimizer.zero_grad()
             loss_entropy = self.compute_entropy_loss(action_log_probs, tstep)
             loss_entropy.backward()
-            self.entropy_optim.step()
+            torch.nn.utils.clip_grad_norm_(
+                [self.log_entropy_coef], self.config.grad_norm_max)
+            self.entropy_optimizer.step()
 
             self.config.entropy_coef = self.log_entropy_coef.exp()
 
@@ -205,9 +216,6 @@ class Agent(DQN_Agent):
         return loss_pi.detach().cpu().item() + loss_q.detach().cpu().item() + loss_entropy.detach().cpu().item()
 
     def update_(self, tstep=0):
-        if tstep < self.config.learn_start:
-            return None
-
         loss = []
         # For SAC, updates/env_steps == 1
         for _ in range(self.config.update_freq):
@@ -251,6 +259,7 @@ class Agent(DQN_Agent):
                     'Policy/Sigma Norm', sigma_norm, tstep)
 
     def get_action(self, obs, deterministic=False):
+        self.policy_net.sample_noise()
         X = torch.from_numpy(obs).to(self.device).to(torch.float).view((-1,)+self.num_feats) / self.config.state_norm
         return self.policy_net.act(X, deterministic).reshape(self.envs.action_space.shape)
 

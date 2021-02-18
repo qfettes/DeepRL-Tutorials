@@ -27,7 +27,7 @@ class Agent(BaseAgent):
         self.declare_networks()
 
         self.optimizer = optim.Adam(self.q_net.parameters(
-        ), lr=self.config.lr, eps=self.config.adam_eps)
+        ), lr=self.config.lr, eps=self.config.optim_eps)
 
         self.loss_fun = torch.nn.SmoothL1Loss(reduction='none')
         # self.loss_fun = torch.nn.MSELoss(reduction='mean')
@@ -184,9 +184,6 @@ class Agent(BaseAgent):
         return loss
 
     def update_(self, tstep=0):
-        if tstep < self.config.learn_start:
-            return None
-
         batch_vars = self.prep_minibatch(tstep)
 
         loss = self.compute_loss(batch_vars, tstep)

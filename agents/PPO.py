@@ -14,7 +14,7 @@ class Agent(A2C):
                                     log_dir=log_dir, tb_writer=tb_writer)
 
         self.optimizer = optim.Adam(self.policy_value_net.parameters(
-        ), lr=self.config.lr, eps=self.config.adam_eps)
+        ), lr=self.config.lr, eps=self.config.optim_eps)
 
         if self.config.anneal_ppo_clip:
             self.anneal_clip_param_fun = LinearSchedule(

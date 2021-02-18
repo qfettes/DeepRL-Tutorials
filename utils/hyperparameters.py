@@ -31,17 +31,14 @@ class Config(object):
         self.num_envs = 1
         self.update_freq = 4
         self.lr = 2.5e-4
-        self.use_lr_schedule = False
+        self.anneal_lr = False
         self.grad_norm_max = 40.0
         self.gamma = 0.99
         self.body_out = 64
 
-        # RMSProp params
+        # Optimizer params
         self.rms_alpha = 0.99
-        self.rms_eps = 1e-5
-
-        # adam params
-        self.adam_eps = 1e-4
+        self.optim_eps = 1e-4
 
         # Replay memory
         self.exp_replay_size = int(1e6)
