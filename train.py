@@ -227,9 +227,9 @@ def train(config, Agent, valid_arguments, default_arguments, ipynb=False):
 
     progress = range(1, max_epochs + 1)
     if not ipynb:
-        progress = tqdm.tqdm(range(1, max_epochs + 1))
-        progress.set_description("Updates %d, Tsteps %d, Time %.2f, FPS %d, mean/median R %.1f/%.1f, min/max R %.1f/%.1f" %
-                                 (0, 0, 0, 0, 0.0, 0.0, 0.0, 0.0))
+        progress = tqdm.tqdm(range(1, max_epochs + 1), dynamic_ncols=True)
+        progress.set_description("Updates %d, Tsteps %d, FPS %d, mean/median R %.1f/%.1f, min/max R %.1f/%.1f" %
+                                 (0, 0, 0, 0, 0.0, 0.0, 0.0))
 
     start = timer()
     for epoch in progress:
@@ -264,16 +264,15 @@ def train(config, Agent, valid_arguments, default_arguments, ipynb=False):
 def update_progress(config, progress, agent, current_tstep, start, log_dir, ipynb):
     end = timer()
     if not ipynb:
-        progress.set_description("Upd. %d, Tsteps %d, Time %s, FPS %d, mean/median R %.1f/%.1f, min/max R %.1f/%.1f" %
-            (int(np.max([(current_tstep-config.learn_start)/config.update_freq, 0])),
+        progress.set_description("Upd. %d, Tsteps %d, FPS %d, mean/median R %.1f/%.1f, min/max R %.1f/%.1f" %
+            (
+            int(np.max([(current_tstep-config.learn_start)/config.update_freq, 0])),
             current_tstep,
-            str(timedelta(seconds=end-start)
-                ).split('.')[0],
-                int(current_tstep * np.mean(config.adaptive_repeat) / (end - start)),
-                np.mean(agent.last_100_rewards),
-                np.median(agent.last_100_rewards),
-                np.min(agent.last_100_rewards),
-                np.max(agent.last_100_rewards))
+            int(current_tstep * np.mean(config.adaptive_repeat) / (end - start)),
+            np.mean(agent.last_100_rewards),
+            np.median(agent.last_100_rewards),
+            np.min(agent.last_100_rewards),
+            np.max(agent.last_100_rewards))
             )
     else:
         plot_reward(log_dir, config.env_id, config.max_tsteps, bin_size=10, smooth=1,

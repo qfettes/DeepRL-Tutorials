@@ -66,8 +66,7 @@ class Agent(BaseAgent):
     def training_priors(self):
         self.obs = self.envs.reset()
 
-        obs = torch.from_numpy(self.obs.astype(
-            np.float32)).to(self.device)
+        obs = torch.from_numpy(self.obs.astype(np.float32)).to(self.device) / self.config.state_norm
 
         self.rollouts.observations[0].copy_(obs)
 
@@ -207,7 +206,7 @@ class Agent(BaseAgent):
 
         obs, reward, done, info = self.envs.step(cpu_actions)
 
-        obs = torch.from_numpy(obs.astype(np.float32)).to(self.device)
+        obs = torch.from_numpy(obs.astype(np.float32)).to(self.device) / self.config.state_norm
 
         # agent rewards
         self.episode_rewards += reward
