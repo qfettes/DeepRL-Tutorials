@@ -7,20 +7,23 @@ from agents.DQN import Agent as DQN_Agent
 
 
 class Agent(DQN_Agent):
-    def __init__(self, env=None, config=None, log_dir='/tmp/gym'):
+    def __init__(self, env=None, config=None, log_dir='/tmp/gym', tb_writer=None,
+        valid_arguments=set(), default_arguments={}):
+
         self.num_quantiles = config.quantiles
         self.cumulative_density = torch.tensor((2 * np.arange(self.num_quantiles) + 1) / (
             2.0 * self.num_quantiles), device=config.device, dtype=torch.float)
         self.quantile_weight = 1.0 / self.num_quantiles
 
-        super().__init__(env=env, config=config,
-                                    log_dir=log_dir, tb_writer=tb_writer)
+        super().__init__(env=env, config=config, log_dir=log_dir, 
+            tb_writer=tb_writer, valid_arguments=valid_arguments,
+            default_arguments=default_arguments)
 
     def declare_networks(self):
         self.q_net = QRDQN(self.env.observation_space.shape, self.env.action_space.n,
-                           noisy=self.noisy, sigma_init=self.sigma_init, quantiles=self.num_quantiles)
+                           noisy_nets=self.noisy, noisy_sigma=self.noisy_sigma, quantiles=self.num_quantiles)
         self.target_q_net = QRDQN(self.env.observation_space.shape, self.env.action_space.n,
-                                  noisy=self.noisy, sigma_init=self.sigma_init, quantiles=self.num_quantiles)
+                                  noisy_nets=self.noisy, noisy_sigma=self.noisy_sigma, quantiles=self.num_quantiles)
 
     def next_distribution(self, batch_vars):
         batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights = batch_vars

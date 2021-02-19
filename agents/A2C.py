@@ -12,9 +12,13 @@ from agents.BaseAgent import BaseAgent
 
 
 class Agent(BaseAgent):
-    def __init__(self, env=None, config=None, log_dir='/tmp/gym', tb_writer=None):
-        super().__init__(env=env, config=config,
-                                    log_dir=log_dir, tb_writer=tb_writer)
+    def __init__(self, env=None, config=None, log_dir='/tmp/gym', tb_writer=None,
+        valid_arguments=set(), default_arguments={}):
+
+        super().__init__(env=env, config=config, log_dir=log_dir, 
+            tb_writer=tb_writer, valid_arguments=valid_arguments,
+            default_arguments=default_arguments)
+            
         self.config = config
         self.num_feats = env.observation_space.shape
 
@@ -57,7 +61,7 @@ class Agent(BaseAgent):
 
     def declare_networks(self):
         self.policy_value_net = ActorCritic(self.num_feats, self.action_space, body_out=self.config.body_out, use_gru=self.config.recurrent_policy_gradient,
-                                            gru_size=self.config.gru_size, noisy_nets=self.config.noisy_nets, sigma_init=self.config.sigma_init)
+                                            gru_size=self.config.gru_size, noisy_nets=self.config.noisy_nets, noisy_sigma=self.config.noisy_sigma)
 
     def training_priors(self):
         self.obs = self.envs.reset()

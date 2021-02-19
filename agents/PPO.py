@@ -9,14 +9,17 @@ from agents.A2C import Agent as A2C
 
 
 class Agent(A2C):
-    def __init__(self, env=None, config=None, log_dir='/tmp/gym', tb_writer=None):
-        super().__init__(env=env, config=config,
-                                    log_dir=log_dir, tb_writer=tb_writer)
+    def __init__(self, env=None, config=None, log_dir='/tmp/gym', tb_writer=None,
+        valid_arguments=set(), default_arguments={}):
+
+        super().__init__(env=env, config=config, log_dir=log_dir, 
+            tb_writer=tb_writer, valid_arguments=valid_arguments,
+            default_arguments=default_arguments)
 
         self.optimizer = optim.Adam(self.policy_value_net.parameters(
         ), lr=self.config.lr, eps=self.config.optim_eps)
 
-        if self.not config.disable_ppo_clip_schedule:
+        if not self.config.disable_ppo_clip_schedule:
             self.anneal_clip_param_fun = LinearSchedule(
                 self.config.ppo_clip_param, 0.0, 1.0, config.max_tsteps)
         else:
@@ -37,7 +40,7 @@ class Agent(A2C):
                             1.0 + clip_param) * adv_targ
         action_loss = -torch.min(surr1, surr2).mean()
 
-        if self.not config.disable_ppo_clip_value:
+        if not self.config.disable_ppo_clip_value:
             value_pred_clipped = value_preds_batch + \
                 (values - value_preds_batch).clamp(-clip_param, clip_param)
             value_losses = (values - return_batch).pow(2)

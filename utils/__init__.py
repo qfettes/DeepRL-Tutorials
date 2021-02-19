@@ -1,9 +1,10 @@
 import pickle, os, glob, math
 
-def save_config(config, base_dir):
+def save_config(config, base_dir, valid_arguments):
     print(f'{" Hyperparameters " :*^50}')
     for var, value in vars(config).items():
-        print(f'{colorize(f"{var}", color="blue", bold=True) :-<36}' + f'{f"{value}" :->25}')
+        if var in valid_arguments:
+            print(f'{colorize(f"{var}", color="blue", bold=True) :-<36}' + f'{f"{value}" :->25}')
     print(f'{" End Hyperparameters " :*^50}')
     pickle.dump(config, open(os.path.join(base_dir, 'config.dump'), 'wb'))
 

@@ -16,9 +16,13 @@ np.set_printoptions(threshold=sys.maxsize)
 
 
 class Agent(BaseAgent):
-    def __init__(self, env=None, config=None, log_dir='/tmp/gym', tb_writer=None):
-        super(Agent, self).__init__(env=env, config=config,
-                                    log_dir=log_dir, tb_writer=tb_writer)
+    def __init__(self, env=None, config=None, log_dir='/tmp/gym', tb_writer=None,
+        valid_arguments=set(), default_arguments={}):
+
+        super(Agent, self).__init__(env=env, config=config, log_dir=log_dir, 
+            tb_writer=tb_writer, valid_arguments=valid_arguments,
+            default_arguments=default_arguments)
+            
         self.config = config
         self.num_feats = env.observation_space.shape
         self.num_actions = env.action_space.n * len(config.adaptive_repeat)
@@ -51,22 +55,22 @@ class Agent(BaseAgent):
 
     def declare_networks(self):
         if self.config.dueling_dqn:
-            self.q_net = DuelingDQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets,
-                                    sigma_init=self.config.sigma_init, body=AtariBody)
+            self.q_net = DuelingDQN(self.num_feats, self.num_actions, noisy_nets=self.config.noisy_nets,
+                                    noisy_sigma=self.config.noisy_sigma, body=AtariBody)
             self.target_q_net = DuelingDQN(
-                self.num_feats, self.num_actions, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init, body=AtariBody)
+                self.num_feats, self.num_actions, noisy_nets=self.config.noisy_nets, noisy_sigma=self.config.noisy_sigma, body=AtariBody)
         else:
-            self.q_net = DQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets,
-                             sigma_init=self.config.sigma_init, body=AtariBody)
-            self.target_q_net = DQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets,
-                                    sigma_init=self.config.sigma_init, body=AtariBody)
+            self.q_net = DQN(self.num_feats, self.num_actions, noisy_nets=self.config.noisy_nets,
+                             noisy_sigma=self.config.noisy_sigma, body=AtariBody)
+            self.target_q_net = DQN(self.num_feats, self.num_actions, noisy_nets=self.config.noisy_nets,
+                                    noisy_sigma=self.config.noisy_sigma, body=AtariBody)
 
         self.target_q_net.load_state_dict(self.q_net.state_dict())
 
     def declare_memory(self):
         if self.config.priority_replay:
             self.memory = PrioritizedReplayMemory(
-                self.config.replay_size, self.config.priority_alpha, self.config.priority_beta_start, self.config.priority_beta_tsteps)
+                self.config.replay_size, self.config.priority_alpha, self.config.priority_beta_start, self.config.priority_beta_steps)
         else:
             self.memory = ExperienceReplayMemory(self.config.replay_size)
 

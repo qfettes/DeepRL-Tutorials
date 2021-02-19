@@ -7,12 +7,12 @@ from networks.layers import NoisyLinear
 
 
 class AtariBody(nn.Module):
-    def __init__(self, input_shape, num_actions, noisy=False, sigma_init=0.5):
+    def __init__(self, input_shape, num_actions, noisy_nets=False, noisy_sigma=0.5):
         super(AtariBody, self).__init__()
 
         self.input_shape = input_shape
         self.num_actions = num_actions
-        self.noisy = noisy
+        self.noisy = noisy_nets
 
         self.conv1 = nn.Conv2d(
             self.input_shape[0], 32, kernel_size=8, stride=4)
@@ -41,15 +41,15 @@ class AtariBody(nn.Module):
 
 
 class SimpleBody(nn.Module):
-    def __init__(self, input_shape, num_actions, noisy=False, sigma_init=0.5):
+    def __init__(self, input_shape, num_actions, noisy_nets=False, noisy_sigma=0.5):
         super(SimpleBody, self).__init__()
 
         self.input_shape = input_shape
         self.num_actions = num_actions
-        self.noisy = noisy
+        self.noisy = noisy_nets
 
         self.fc1 = nn.Linear(input_shape[0], 128) if not self.noisy else NoisyLinear(
-            input_shape[0], 128, sigma_init)
+            input_shape[0], 128, noisy_sigma)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
@@ -64,11 +64,11 @@ class SimpleBody(nn.Module):
 
 
 class AtariBodyAC(nn.Module):
-    def __init__(self, input_shape, body_out=64, noisy_nets=False, sigma_init=0.4):
+    def __init__(self, input_shape, body_out=64, noisy_nets=False, noisy_sigma=0.4):
         super(AtariBodyAC, self).__init__()
         self.body_out = body_out
         self.noisy_nets = noisy_nets
-        self.sigma_init = sigma_init
+        self.noisy_sigma = noisy_sigma
 
         def init_(m): return self.layer_init(m, nn.init.orthogonal_,
                                              lambda x: nn.init.constant_(x, 0),
@@ -85,7 +85,7 @@ class AtariBodyAC(nn.Module):
                                              noisy_layer=self.noisy_nets)
 
         self.fc1 = init_(nn.Linear(self.feature_size(input_shape), body_out)) if not self.noisy_nets else init_(
-            NoisyLinear(self.feature_size(input_shape), body_out, sigma_init))
+            NoisyLinear(self.feature_size(input_shape), body_out, noisy_sigma))
 
         self.train()
         if self.noisy_nets:
@@ -119,7 +119,7 @@ class AtariBodyAC(nn.Module):
 
 
 class SimpleBodyAC(nn.Module):
-    def __init__(self, input_shape, output_shape=200, noisy_nets=False, sigma_init=0.5):
+    def __init__(self, input_shape, output_shape=200, noisy_nets=False, noisy_sigma=0.5):
         super(SimpleBodyAC, self).__init__()
         self.input_shape = input_shape
         self.output_shape = output_shape
@@ -131,7 +131,7 @@ class SimpleBodyAC(nn.Module):
                                              noisy_layer=self.noisy_nets)
 
         self.fc1 = init_(nn.Linear(input_shape[0], output_shape)) if not self.noisy_nets else init_(
-            NoisyLinear(input_shape[0], output_shape, sigma_init))
+            NoisyLinear(input_shape[0], output_shape, noisy_sigma))
 
         self.train()
         if self.noisy_nets:

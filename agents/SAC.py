@@ -18,14 +18,16 @@ from agents.DQN import Agent as DQN_Agent
 import random
 
 class Agent(DQN_Agent):
-    def __init__(self, env=None, config=None, log_dir='/tmp/gym', tb_writer=None):
+    def __init__(self, env=None, config=None, log_dir='/tmp/gym', tb_writer=None,
+        valid_arguments=set(), default_arguments={}):
         # NOTE: Calling BaseAgent init instead of DQN. Weird
         # pylint: disable=bad-super-call
         super(Agent.__bases__[0], self).__init__(env=env, config=config,
-                         log_dir=log_dir, tb_writer=tb_writer)
+                         log_dir=log_dir, tb_writer=tb_writer,
+                         valid_arguments=valid_arguments,
+                         default_arguments=default_arguments)
 
         self.config = config
-        self.check_args()
 
         self.continousActionSpace = False
         if env.action_space.__class__.__name__ == 'Discrete':
@@ -58,25 +60,11 @@ class Agent(DQN_Agent):
         self.update_count = 0
         self.nstep_buffer = []
 
-        self.training_priors()
-
-    def check_args(self):
-        assert(not self.config.double_dqn), "Double DQN is not supported with SAC"
-        assert(
-            not self.config.recurrent_policy_gradient), "Recurrent Policy is\
-                 not supported with SAC"
-        assert((len(self.config.adaptive_repeat) == 1) and (self.config.adaptive_repeat[0] == 4)), \
-            f"Adaptive Repeat isn't supported in continuous action spaces; it has been \
-                changed from its default value to {self.config.adaptive_repeat}"
-        assert(not self.config.dueling_dqn), "Dueling DQN is not supported with SAC"
-        assert(not self.config.recurrent_policy_gradient), "GRU is not yet supported with SAC"
-        assert(not self.config.anneal_lr), "Annealing LR not supported with SAC"
-
-        
+        self.training_priors()    
 
     def declare_networks(self):
-        self.policy_net = Actor_SAC(self.num_feats, self.action_space, hidden_dim=256, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init)
-        self.q_net = DQN_SAC(self.num_feats, self.action_space, hidden_dim=256, noisy=self.config.noisy_nets, sigma_init=self.config.sigma_init)
+        self.policy_net = Actor_SAC(self.num_feats, self.action_space, hidden_dim=256, noisy_nets=self.config.noisy_nets, noisy_sigma=self.config.noisy_sigma)
+        self.q_net = DQN_SAC(self.num_feats, self.action_space, hidden_dim=256, noisy_nets=self.config.noisy_nets, noisy_sigma=self.config.noisy_sigma)
         self.target_q_net = deepcopy(self.q_net)
 
         # First layer of protection. Don't compute gradient for target networks

@@ -7,9 +7,12 @@ from agents.DQN import Agent as DQN_Agent
 
 
 class Agent(DQN_Agent):
-    def __init__(self, env=None, config=None, log_dir='/tmp/gym', tb_writer=None):
-        super().__init__(env=env, config=config,
-                                    log_dir=log_dir, tb_writer=tb_writer)
+    def __init__(self, env=None, config=None, log_dir='/tmp/gym', tb_writer=None,
+        valid_arguments=set(), default_arguments={}):
+
+        super().__init__(env=env, config=config,log_dir=log_dir, 
+            tb_writer=tb_writer, valid_arguments=valid_arguments,
+            default_arguments=default_arguments)
 
         self.supports = torch.linspace(self.config.c51_vmin, self.config.c51_vmax,
                                        self.config.c51_atoms, device=config.device).view(1, 1, self.config.c51_atoms)
@@ -18,15 +21,15 @@ class Agent(DQN_Agent):
 
     def declare_networks(self):
         if self.config.dueling_dqn:
-            self.q_net = CategoricalDuelingDQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets,
-                                               sigma_init=self.config.sigma_init, body=AtariBody, atoms=self.config.c51_atoms)
-            self.target_q_net = CategoricalDuelingDQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets,
-                                                      sigma_init=self.config.sigma_init, body=AtariBody, atoms=self.config.c51_atoms)
+            self.q_net = CategoricalDuelingDQN(self.num_feats, self.num_actions, noisy_nets=self.config.noisy_nets,
+                                               noisy_sigma=self.config.noisy_sigma, body=AtariBody, atoms=self.config.c51_atoms)
+            self.target_q_net = CategoricalDuelingDQN(self.num_feats, self.num_actions, noisy_nets=self.config.noisy_nets,
+                                                      noisy_sigma=self.config.noisy_sigma, body=AtariBody, atoms=self.config.c51_atoms)
         else:
-            self.q_net = CategoricalDQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets,
-                                        sigma_init=self.config.sigma_init, body=AtariBody, atoms=self.config.c51_atoms)
-            self.target_q_net = CategoricalDQN(self.num_feats, self.num_actions, noisy=self.config.noisy_nets,
-                                               sigma_init=self.config.sigma_init, body=AtariBody, atoms=self.config.c51_atoms)
+            self.q_net = CategoricalDQN(self.num_feats, self.num_actions, noisy_nets=self.config.noisy_nets,
+                                        noisy_sigma=self.config.noisy_sigma, body=AtariBody, atoms=self.config.c51_atoms)
+            self.target_q_net = CategoricalDQN(self.num_feats, self.num_actions, noisy_nets=self.config.noisy_nets,
+                                               noisy_sigma=self.config.noisy_sigma, body=AtariBody, atoms=self.config.c51_atoms)
 
     def projection_distribution(self, batch_vars):
         batch_state, batch_action, batch_reward, non_final_next_states, non_final_mask, empty_next_state_values, indices, weights = batch_vars

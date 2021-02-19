@@ -8,7 +8,11 @@ import torch.optim as optim
 
 
 class BaseAgent(object):
-    def __init__(self, env, config, log_dir='/tmp/gym', tb_writer=None):
+    def __init__(self, env, config, log_dir='/tmp/gym', tb_writer=None,
+        valid_arguments=set(), default_arguments={}):
+
+        self.check_args(config, valid_arguments, default_arguments)
+
         self.q_net = None
         self.target_q_net = None
         self.optimizer = None
@@ -34,8 +38,13 @@ class BaseAgent(object):
 
         # self.action_selections = [0 for _ in range(env.action_space.n)]
     
-    def check_args(self, arg, defaults):
-        raise NotImplementedError("Method must have an argument checker")
+    def check_args(self, config, valids, defaults):
+        invalid_args = set(defaults.keys()) - valids
+        for arg in invalid_args:
+            assert(vars(config)[arg] == defaults[arg]), \
+                (f"{arg} is not used in {config.algo}; thus, it is invalid "
+                f"to change its default value: {defaults[arg]} "
+                f"to your selected value {vars(config)[arg]}")
 
     def save_w(self):
         torch.save(self.q_net.state_dict(), os.path.join(

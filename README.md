@@ -58,37 +58,37 @@ python train.py --double-dqn --priority-replay
 
 ### Dueling DQN
 ```
-python train.py --double-dqn --priority-replay --dueling-dqn --max-grad-norm 10.0
+python train.py --double-dqn --priority-replay --dueling-dqn --grad-norm-max 10.0
 ```
 
 ### Noisy Networks
 ```
-python train.py --double-dqn --priority-replay --dueling-dqn --max-grad-norm 10.0 --noisy-nets
+python train.py --double-dqn --priority-replay --dueling-dqn --grad-norm-max 10.0 --noisy-nets
 ```
 
 ### A2C:
 ```
-python train.py --algo a2c --print-threshold 100 --max-tsteps 10000000 --learn-start 0 --nenvs 16 --update-freq 5 --lr 0.0007 --anneal-lr --max-grad-norm 0.5 --optim-eps 1e-4
+python train.py --algo a2c --print-threshold 100 --max-tsteps 10000000 --learn-start 0 --nenvs 16 --update-freq 5 --lr 0.0007 --anneal-lr --grad-norm-max 0.5 --optim-eps 1e-4
 ```
 
 ### Recurrent A2C:
 ```
-python train.py --algo a2c --print-threshold 25 --save-threshold 250 --max-tsteps 10000000 --learn-start 0 --nenvs 16 --update-freq 20 --lr 0.0007 --anneal-lr --max-grad-norm 0.5 --recurrent-policy-gradient --optim-eps 1e-4
+python train.py --algo a2c --print-threshold 25 --save-threshold 250 --max-tsteps 10000000 --learn-start 0 --nenvs 16 --update-freq 20 --lr 0.0007 --anneal-lr --grad-norm-max 0.5 --recurrent-policy-gradient --optim-eps 1e-4
 ```
 
 ### PPO:
 ```
-python train.py --algo ppo --print-threshold 10 --save-threshold 100 --max-tsteps 10000000 --learn-start 0 --nenvs 8 --update-freq 128 --lr 2.5e-4 --anneal-lr --max-grad-norm 0.5 --value-loss-weight 1.0 --enable-gae --disable-ppo-clip-value
+python train.py --algo ppo --print-threshold 10 --save-threshold 100 --max-tsteps 10000000 --learn-start 0 --nenvs 8 --update-freq 128 --lr 2.5e-4 --anneal-lr --grad-norm-max 0.5 --value-loss-coef 1.0 --use-gae --disable-ppo-clip-value
 ```
 
 ### Continuous A2C (Not Working):
 ```
-python train.py --env-id Reacher-v2 --algo a2c --print-threshold 25 --save-threshold 250 --max-tsteps 10000000 --learn-start 0 --nenvs 16 --update-freq 200 --lr 0.0007 --anneal-lr --max-grad-norm 0.5 --body-out 200 --gru-size 128 --recurrent-policy-gradient
+python train.py --env-id Reacher-v2 --algo a2c --print-threshold 25 --save-threshold 250 --max-tsteps 10000000 --learn-start 0 --nenvs 16 --update-freq 200 --lr 0.0007 --anneal-lr --grad-norm-max 0.5 --body-out 200 --gru-size 128 --recurrent-policy-gradient
 ```
 
 ### Continuous PPO:
 ```
-python train.py --env-id Reacher-v2 --algo ppo --print-threshold 1 --save-threshold 10 --max-tsteps 10000000 --learn-start 0 --nenvs 1 --update-freq 2048 --lr 3.0e-4 --anneal-lr --max-grad-norm 0.5 --value-loss-coef 0.5 --entropy-coef 0.0 --enable-gae --disable-ppo-clip-value --ppo-epoch 10 --ppo-mini-batch 32 --ppo-clip-param 0.2 --body-out 200 --gru-size 128
+python train.py --env-id Reacher-v2 --algo ppo --print-threshold 1 --save-threshold 10 --max-tsteps 10000000 --learn-start 0 --nenvs 1 --update-freq 2048 --lr 3.0e-4 --anneal-lr --grad-norm-max 0.5 --value-loss-coef 0.5 --entropy-coef 0.0 --enable-gae --disable-ppo-clip-value --ppo-epoch 10 --ppo-mini-batch 32 --ppo-clip-param 0.2 --body-out 200 --gru-size 128
 ```
 
 ### Soft Actor-Critic

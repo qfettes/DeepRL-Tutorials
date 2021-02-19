@@ -61,14 +61,14 @@ class Config(object):
         self.priority_replay = False
         self.priority_alpha = 0.6
         self.priority_beta_start = 0.4
-        self.priority_beta_tsteps = 100000
+        self.priority_beta_steps = 100000
 
         # Dueling DQN
         self.dueling_dqn = False
 
         # Noisy Nets
         self.noisy_nets = False
-        self.sigma_init = 0.5
+        self.noisy_sigma = 0.5
 
         # Categorical Params
         self.c51_atoms = 51

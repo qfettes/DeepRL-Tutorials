@@ -12,19 +12,19 @@ from networks.network_bodies import (AtariBody, AtariBodyAC, SimpleBody,
                                      SimpleBodyAC)
 
 class DQN(nn.Module):
-    def __init__(self, input_shape, num_actions, noisy=False, sigma_init=0.5, body=SimpleBody):
+    def __init__(self, input_shape, num_actions, noisy_nets=False, noisy_sigma=0.5, body=SimpleBody):
         super().__init__()
 
         self.input_shape = input_shape
         self.num_actions = num_actions
-        self.noisy = noisy
+        self.noisy = noisy_nets
 
-        self.body = body(input_shape, num_actions, noisy, sigma_init)
+        self.body = body(input_shape, num_actions, noisy, noisy_sigma)
 
         self.fc1 = nn.Linear(self.body.feature_size(), 512) if not self.noisy else NoisyLinear(
-            self.body.feature_size(), 512, sigma_init)
+            self.body.feature_size(), 512, noisy_sigma)
         self.fc2 = nn.Linear(512, self.num_actions) if not self.noisy else NoisyLinear(
-            512, self.num_actions, sigma_init)
+            512, self.num_actions, noisy_sigma)
 
     def forward(self, x):
         x = self.body(x)
@@ -41,24 +41,24 @@ class DQN(nn.Module):
 
 
 class DuelingDQN(nn.Module):
-    def __init__(self, input_shape, num_outputs, noisy=False, sigma_init=0.5, body=SimpleBody):
+    def __init__(self, input_shape, num_outputs, noisy_nets=False, noisy_sigma=0.5, body=SimpleBody):
         super().__init__()
 
         self.input_shape = input_shape
         self.num_actions = num_outputs
-        self.noisy = noisy
+        self.noisy = noisy_nets
 
-        self.body = body(input_shape, num_outputs, noisy, sigma_init)
+        self.body = body(input_shape, num_outputs, noisy, noisy_sigma)
 
         self.adv1 = nn.Linear(self.body.feature_size(), 512) if not self.noisy else NoisyLinear(
-            self.body.feature_size(), 512, sigma_init)
+            self.body.feature_size(), 512, noisy_sigma)
         self.adv2 = nn.Linear(512, self.num_actions) if not self.noisy else NoisyLinear(
-            512, self.num_actions, sigma_init)
+            512, self.num_actions, noisy_sigma)
 
         self.val1 = nn.Linear(self.body.feature_size(), 512) if not self.noisy else NoisyLinear(
-            self.body.feature_size(), 512, sigma_init)
+            self.body.feature_size(), 512, noisy_sigma)
         self.val2 = nn.Linear(512, 1) if not self.noisy else NoisyLinear(
-            512, 1, sigma_init)
+            512, 1, noisy_sigma)
 
     def forward(self, x):
         x = self.body(x)
@@ -81,20 +81,20 @@ class DuelingDQN(nn.Module):
 
 
 class CategoricalDQN(nn.Module):
-    def __init__(self, input_shape, num_outputs, noisy=False, sigma_init=0.5, body=SimpleBody, atoms=51):
+    def __init__(self, input_shape, num_outputs, noisy_nets=False, noisy_sigma=0.5, body=SimpleBody, atoms=51):
         super().__init__()
 
         self.input_shape = input_shape
         self.num_actions = num_outputs
-        self.noisy = noisy
+        self.noisy = noisy_nets
         self.c51_atoms = atoms
 
-        self.body = body(input_shape, num_outputs, noisy, sigma_init)
+        self.body = body(input_shape, num_outputs, noisy, noisy_sigma)
 
         self.fc1 = nn.Linear(self.body.feature_size(), 512) if not self.noisy else NoisyLinear(
-            self.body.feature_size(), 512, sigma_init)
+            self.body.feature_size(), 512, noisy_sigma)
         self.fc2 = nn.Linear(512, self.num_actions*self.c51_atoms) if not self.noisy else NoisyLinear(
-            512, self.num_actions*self.c51_atoms, sigma_init)
+            512, self.num_actions*self.c51_atoms, noisy_sigma)
 
     def forward(self, x):
         x = self.body(x)
@@ -113,25 +113,25 @@ class CategoricalDQN(nn.Module):
 
 
 class CategoricalDuelingDQN(nn.Module):
-    def __init__(self, input_shape, num_outputs, noisy=False, sigma_init=0.5, body=SimpleBody, atoms=51):
+    def __init__(self, input_shape, num_outputs, noisy_nets=False, noisy_sigma=0.5, body=SimpleBody, atoms=51):
         super().__init__()
 
         self.input_shape = input_shape
         self.num_actions = num_outputs
-        self.noisy = noisy
+        self.noisy = noisy_nets
         self.c51_atoms = atoms
 
-        self.body = body(input_shape, num_outputs, noisy, sigma_init)
+        self.body = body(input_shape, num_outputs, noisy, noisy_sigma)
 
         self.adv1 = nn.Linear(self.body.feature_size(), 512) if not self.noisy else NoisyLinear(
-            self.body.feature_size(), 512, sigma_init)
+            self.body.feature_size(), 512, noisy_sigma)
         self.adv2 = nn.Linear(512, self.num_actions*self.c51_atoms) if not self.noisy else NoisyLinear(
-            512, self.num_actions*self.c51_atoms, sigma_init)
+            512, self.num_actions*self.c51_atoms, noisy_sigma)
 
         self.val1 = nn.Linear(self.body.feature_size(), 512) if not self.noisy else NoisyLinear(
-            self.body.feature_size(), 512, sigma_init)
+            self.body.feature_size(), 512, noisy_sigma)
         self.val2 = nn.Linear(
-            512, 1*self.c51_atoms) if not self.noisy else NoisyLinear(512, 1*self.c51_atoms, sigma_init)
+            512, 1*self.c51_atoms) if not self.noisy else NoisyLinear(512, 1*self.c51_atoms, noisy_sigma)
 
     def forward(self, x):
         x = self.body(x)
@@ -156,20 +156,20 @@ class CategoricalDuelingDQN(nn.Module):
 
 
 class QRDQN(nn.Module):
-    def __init__(self, input_shape, num_outputs, noisy=False, sigma_init=0.5, body=SimpleBody, quantiles=51):
+    def __init__(self, input_shape, num_outputs, noisy_nets=False, noisy_sigma=0.5, body=SimpleBody, quantiles=51):
         super().__init__()
 
         self.input_shape = input_shape
         self.num_actions = num_outputs
-        self.noisy = noisy
+        self.noisy = noisy_nets
         self.quantiles = quantiles
 
-        self.body = body(input_shape, num_outputs, noisy, sigma_init)
+        self.body = body(input_shape, num_outputs, noisy, noisy_sigma)
 
         self.fc1 = nn.Linear(self.body.feature_size(), 512) if not self.noisy else NoisyLinear(
-            self.body.feature_size(), 512, sigma_init)
+            self.body.feature_size(), 512, noisy_sigma)
         self.fc2 = nn.Linear(512, self.num_actions*self.quantiles) if not self.noisy else NoisyLinear(
-            512, self.num_actions*self.quantiles, sigma_init)
+            512, self.num_actions*self.quantiles, noisy_sigma)
 
     def forward(self, x):
         x = self.body(x)
@@ -187,25 +187,25 @@ class QRDQN(nn.Module):
 
 
 class DuelingQRDQN(nn.Module):
-    def __init__(self, input_shape, num_outputs, noisy=False, sigma_init=0.5, body=SimpleBody, quantiles=51):
+    def __init__(self, input_shape, num_outputs, noisy_nets=False, noisy_sigma=0.5, body=SimpleBody, quantiles=51):
         super().__init__()
 
         self.input_shape = input_shape
         self.num_actions = num_outputs
-        self.noisy = noisy
+        self.noisy = noisy_nets
         self.quantiles = quantiles
 
-        self.body = body(input_shape, num_outputs, noisy, sigma_init)
+        self.body = body(input_shape, num_outputs, noisy, noisy_sigma)
 
         self.adv1 = nn.Linear(self.body.feature_size(), 512) if not self.noisy else NoisyLinear(
-            self.body.feature_size(), 512, sigma_init)
+            self.body.feature_size(), 512, noisy_sigma)
         self.adv2 = nn.Linear(512, self.num_actions*self.quantiles) if not self.noisy else NoisyLinear(
-            512, self.num_actions*self.quantiles, sigma_init)
+            512, self.num_actions*self.quantiles, noisy_sigma)
 
         self.val1 = nn.Linear(self.body.feature_size(), 512) if not self.noisy else NoisyLinear(
-            self.body.feature_size(), 512, sigma_init)
+            self.body.feature_size(), 512, noisy_sigma)
         self.val2 = nn.Linear(
-            512, 1*self.quantiles) if not self.noisy else NoisyLinear(512, 1*self.quantiles, sigma_init)
+            512, 1*self.quantiles) if not self.noisy else NoisyLinear(512, 1*self.quantiles, noisy_sigma)
 
     def forward(self, x):
         x = self.body(x)
@@ -232,22 +232,22 @@ class DuelingQRDQN(nn.Module):
 ########Recurrent Architectures#########
 
 class DRQN(nn.Module):
-    def __init__(self, input_shape, num_actions, noisy=False, sigma_init=0.5, gru_size=512, bidirectional=False, body=SimpleBody):
+    def __init__(self, input_shape, num_actions, noisy_nets=False, noisy_sigma=0.5, gru_size=512, bidirectional=False, body=SimpleBody):
         super().__init__()
 
         self.input_shape = input_shape
         self.num_actions = num_actions
-        self.noisy = noisy
+        self.noisy = noisy_nets
         self.gru_size = gru_size
         self.bidirectional = bidirectional
         self.num_directions = 2 if self.bidirectional else 1
 
         self.body = body(input_shape, num_actions,
-                         noisy=self.noisy, sigma_init=sigma_init)
+                         noisy_nets=self.noisy, noisy_sigma=noisy_sigma)
         self.gru = nn.GRU(self.body.feature_size(), self.gru_size,
                           num_layers=1, batch_first=True, bidirectional=bidirectional)
         self.fc2 = nn.Linear(self.gru_size, self.num_actions) if not self.noisy else NoisyLinear(
-            self.gru_size, self.num_actions, sigma_init)
+            self.gru_size, self.num_actions, noisy_sigma)
 
     def forward(self, x, hx=None):
         batch_size = x.size(0)
@@ -275,22 +275,22 @@ class DRQN(nn.Module):
 ########Actor Critic Architectures#########
 
 class ActorCritic(nn.Module):
-    def __init__(self, input_shape, num_actions, body_out=64, use_gru=False, gru_size=256, noisy=False, sigma_init=0.5):
+    def __init__(self, input_shape, num_actions, body_out=64, use_gru=False, gru_size=256, noisy_nets=False, noisy_sigma=0.5):
         super().__init__()
         self.body_out = body_out
         self.use_gru = use_gru
         self.gru_size = gru_size
-        self.noisy = noisy
+        self.noisy = noisy_nets
 
         self.continuous = (num_actions.__class__.__name__ == 'Box')
 
         if not self.continuous:
             self.body = AtariBodyAC(
-                input_shape, body_out, noisy, sigma_init)
+                input_shape, body_out, self.noisy, noisy_sigma)
             num_outputs = num_actions
         else:
             self.body = SimpleBodyAC(
-                input_shape, body_out, noisy, sigma_init)
+                input_shape, body_out, self.noisy, noisy_sigma)
             num_outputs = num_actions.shape[0]
             self.logstd = nn.Parameter(torch.zeros(num_outputs))
 
@@ -310,7 +310,7 @@ class ActorCritic(nn.Module):
         else:
             if self.continuous:
                 self.fc1 = init_(nn.Linear(body_out, self.gru_size)) if not self.noisy else init_(
-                    NoisyLinear(body_out, self.gru_size, sigma_init))
+                    NoisyLinear(body_out, self.gru_size, noisy_sigma))
             else:
                 encoder_out = self.body_out
 
@@ -320,14 +320,14 @@ class ActorCritic(nn.Module):
                                              noisy_layer=self.noisy)
 
         self.critic_linear = init_(nn.Linear(encoder_out, 1)) if not self.noisy else init_(
-            NoisyLinear(self.gru_size, 1, sigma_init))
+            NoisyLinear(self.gru_size, 1, noisy_sigma))
 
         def init_(m): return self.layer_init(m, nn.init.orthogonal_,
                                              lambda x: nn.init.constant_(x, 0), gain=0.01,
                                              noisy_layer=self.noisy)
 
         self.actor_linear = init_(nn.Linear(encoder_out, num_outputs)) if not self.noisy else init_(
-            NoisyLinear(self.gru_size, num_outputs, sigma_init))
+            NoisyLinear(self.gru_size, num_outputs, noisy_sigma))
 
         self.train()
         if self.noisy:
@@ -507,20 +507,20 @@ LOG_STD_MIN = -20
 #             return a.cpu().numpy()
 
 class Actor_SAC(nn.Module):
-    def __init__(self, input_shape, action_space, hidden_dim=256, noisy = False, sigma_init=0.5):
+    def __init__(self, input_shape, action_space, hidden_dim=256, noisy_nets = False, noisy_sigma=0.5):
         super().__init__()
 
-        self.noisy = noisy
+        self.noisy = noisy_nets
         num_outputs = action_space.shape[0]
 
         self.action_scale = torch.tensor((action_space.high - action_space.low) / 2., dtype=torch.float)
         self.action_bias = torch.tensor((action_space.high + action_space.low) / 2., dtype=torch.float)
 
-        self.fc1 = nn.Linear(input_shape[0], hidden_dim) if not self.noisy else NoisyLinear(input_shape[0], hidden_dim, sigma_init)
-        self.fc2 = nn.Linear(hidden_dim, hidden_dim) if not self.noisy else NoisyLinear(hidden_dim, hidden_dim, sigma_init)
+        self.fc1 = nn.Linear(input_shape[0], hidden_dim) if not self.noisy else NoisyLinear(input_shape[0], hidden_dim, noisy_sigma)
+        self.fc2 = nn.Linear(hidden_dim, hidden_dim) if not self.noisy else NoisyLinear(hidden_dim, hidden_dim, noisy_sigma)
 
-        self.actor_mean = nn.Linear(hidden_dim, num_outputs) if not self.noisy else NoisyLinear(hidden_dim, num_outputs, sigma_init)
-        self.actor_log_std = nn.Linear(hidden_dim, num_outputs) if not self.noisy else NoisyLinear(hidden_dim, num_outputs, sigma_init)
+        self.actor_mean = nn.Linear(hidden_dim, num_outputs) if not self.noisy else NoisyLinear(hidden_dim, num_outputs, noisy_sigma)
+        self.actor_log_std = nn.Linear(hidden_dim, num_outputs) if not self.noisy else NoisyLinear(hidden_dim, num_outputs, noisy_sigma)
 
         if self.noisy:
             self.sample_noise()
@@ -575,22 +575,22 @@ class Actor_SAC(nn.Module):
 
 
 class DQN_SAC(nn.Module):
-    def __init__(self, input_shape, action_space, hidden_dim=256, noisy=False, sigma_init=0.5):
+    def __init__(self, input_shape, action_space, hidden_dim=256, noisy_nets=False, noisy_sigma=0.5):
         super().__init__()
 
-        self.noisy = noisy
+        self.noisy = noisy_nets
 
         num_inputs = input_shape[0] + action_space.shape[0]
 
         # Q1 architecture
-        self.linear1 = nn.Linear(num_inputs, hidden_dim) if not self.noisy else NoisyLinear(num_inputs, hidden_dim, sigma_init)
-        self.linear2 = nn.Linear(hidden_dim, hidden_dim) if not self.noisy else NoisyLinear(hidden_dim, hidden_dim, sigma_init)
-        self.linear3 = nn.Linear(hidden_dim, 1) if not self.noisy else NoisyLinear(hidden_dim, 1, sigma_init)
+        self.linear1 = nn.Linear(num_inputs, hidden_dim) if not self.noisy else NoisyLinear(num_inputs, hidden_dim, noisy_sigma)
+        self.linear2 = nn.Linear(hidden_dim, hidden_dim) if not self.noisy else NoisyLinear(hidden_dim, hidden_dim, noisy_sigma)
+        self.linear3 = nn.Linear(hidden_dim, 1) if not self.noisy else NoisyLinear(hidden_dim, 1, noisy_sigma)
 
         # Q2 architecture
-        self.linear4 = nn.Linear(num_inputs, hidden_dim) if not self.noisy else NoisyLinear(num_inputs, hidden_dim, sigma_init)
-        self.linear5 = nn.Linear(hidden_dim, hidden_dim) if not self.noisy else NoisyLinear(hidden_dim, hidden_dim, sigma_init)
-        self.linear6 = nn.Linear(hidden_dim, 1) if not self.noisy else NoisyLinear(hidden_dim, 1, sigma_init)
+        self.linear4 = nn.Linear(num_inputs, hidden_dim) if not self.noisy else NoisyLinear(num_inputs, hidden_dim, noisy_sigma)
+        self.linear5 = nn.Linear(hidden_dim, hidden_dim) if not self.noisy else NoisyLinear(hidden_dim, hidden_dim, noisy_sigma)
+        self.linear6 = nn.Linear(hidden_dim, 1) if not self.noisy else NoisyLinear(hidden_dim, 1, noisy_sigma)
 
     def forward(self, state, action):
         xu = torch.cat([state, action], dim=-1)

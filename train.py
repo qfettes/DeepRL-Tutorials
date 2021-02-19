@@ -190,7 +190,7 @@ parser.add_argument('--disable-ppo-clip-schedule', action='store_false', default
                     help='[PPO Only] DON\'T linearly decay ppo clip by maximum timestep')
 
 
-def train(config, Agent, ipynb=False):
+def train(config, Agent, valid_arguments, default_arguments, ipynb=False):
     # make/clear directories for logging
     base_dir = os.path.join(config.logdir, config.algo, config.env_id)
     log_dir = os.path.join(base_dir, 'logs/')
@@ -205,7 +205,7 @@ def train(config, Agent, ipynb=False):
     writer = SummaryWriter(log_dir=tb_dir, comment='stuff')
 
     # save configuration for later reference
-    save_config(config, base_dir)
+    save_config(config, base_dir, valid_arguments)
 
     # set seeds
     if config.seed is not None:
@@ -220,7 +220,8 @@ def train(config, Agent, ipynb=False):
                              adaptive_repeat=config.adaptive_repeat,
                              sticky_actions=config.sticky_actions, clip_rewards=True)
 
-    agent = Agent(env=envs, config=config, log_dir=base_dir, tb_writer=writer)
+    agent = Agent(env=envs, config=config, log_dir=base_dir, tb_writer=writer,
+        valid_arguments=valid_arguments, default_arguments=default_arguments)
 
     max_epochs = int(config.max_tsteps / config.nenvs / config.update_freq)
 
@@ -288,23 +289,71 @@ if __name__ == '__main__':
     #   is changed from default
 
     # get all default arguments
-    all_defaults = {}
+    default_arguments = {}
     for key in vars(args):
-        all_defaults[key] = parser.get_default(key)
-    print(vars(args))
-    exit()
+        default_arguments[key] = parser.get_default(key)
+
+    # Keep track of valid arguments for each algorithm
+    #   as library grows, we can throw errors when invalid
+    #   args are changed from default values; this is likely
+    #   unintended by the user
+    universal_arguments = {
+        'device', 'algo', 'env_id', 'seed', 'inference',
+        'print_threshold', 'save_threshold', 'render',
+        'logdir', 'correct_time_limits', 'state_norm',
+        'max_tsteps', 'learn_start', 'random_act', 'nenvs',
+        'update_freq', 'lr', 'anneal_lr', 'grad_norm_max',
+        'gamma', 'optim_eps', 'noisy_nets', 'noisy_sigma'
+    }
+    dqn_arguments = {
+        'stack_frames', 'adaptive_repeat', 'sticky_actions',
+        'replay_size', 'batch_size', 'tnet_update',
+        'eps_start', 'eps_end', 'eps_decay', 'n_steps',
+        'double_dqn', 'priority_replay', 'priority_alpha',
+        'priority_beta_start', 'priority_beta_steps',
+        'dueling_dqn'
+    }
+    c51_arguments = {
+        'c51_atoms', 'c51_vmax', 'c51_vmin'
+    }
+    a2c_arguments = {
+        'rms_alpha', 'recurrent_policy_gradient', 'gru_size',
+        'entropy_coef', 'value_loss_coef', 'use_gae',
+        'gae_tau'
+    }
+    ppo_arguments = {
+        'ppo_epoch', 'ppo_mini_batch', 'ppo_clip_param',
+        'disable_ppo_clip_value', 'disable_ppo_clip_schedule'
+    }
+    sac_arguments = {
+        'random_act', 'polyak_coef', 'entropy_coef',
+        'entropy_tuning'
+    }
 
     # Import Correct Agent
     if args.algo == 'dqn':
         from agents.DQN import Agent
+        valid_arguments = universal_arguments | dqn_arguments
     elif args.algo == 'c51':
         from agents.Categorical_DQN import Agent
+        valid_arguments = universal_arguments | dqn_arguments \
+            | c51_arguments
     elif args.algo == 'a2c':
         from agents.A2C import Agent
+        valid_arguments = universal_arguments | a2c_arguments
     elif args.algo == 'ppo':
         from agents.PPO import Agent
+        valid_arguments = universal_arguments | a2c_arguments \
+            | ppo_arguments
     elif args.algo == 'sac':
         from agents.SAC import Agent
+        valid_arguments = universal_arguments | dqn_arguments
+        valid_arguments = valid_arguments - {
+            'stack_frames', 'adaptive_repeat', 'sticky_actions',
+            'tnet_update', 'eps_start', 'eps_end', 'eps_decay',
+            'double_dqn', 'dueling_dqn'
+        }
+        valid_arguments = valid_arguments | sac_arguments
     else:
         print("INVALID ALGORITHM. ABORT.")
         exit()
@@ -313,72 +362,72 @@ if __name__ == '__main__':
     config = Config()
 
     # meta info
-    config.device = args.device
-    config.algo = args.algo
-    config.env_id = args.env_id
-    config.seed = args.seed
-    config.inference = args.inference
-    config.print_threshold = int(args.print_threshold)
-    config.save_threshold = int(args.save_threshold)
-    config.render = args.render
-    config.logdir = args.logdir
-    config.correct_time_limits = args.correct_time_limits
+    config.device = args.device#
+    config.algo = args.algo#
+    config.env_id = args.env_id#
+    config.seed = args.seed#
+    config.inference = args.inference#
+    config.print_threshold = int(args.print_threshold)#
+    config.save_threshold = int(args.save_threshold)#
+    config.render = args.render#
+    config.logdir = args.logdir#
+    config.correct_time_limits = args.correct_time_limits#
 
     # preprocessing
-    config.stack_frames = int(args.stack_frames)
-    config.adaptive_repeat = args.adaptive_repeat
-    config.state_norm = args.state_norm
-    config.sticky_actions = args.sticky_actions
+    config.stack_frames = int(args.stack_frames)#
+    config.adaptive_repeat = args.adaptive_repeat#
+    config.state_norm = args.state_norm#
+    config.sticky_actions = args.sticky_actions#
 
     # Learning Control Variables
-    config.max_tsteps = int(args.max_tsteps)
-    config.learn_start = int(args.learn_start)
-    config.random_act = int(args.random_act)
-    config.nenvs = int(args.nenvs)
-    config.update_freq = int(args.update_freq)
-    config.lr = args.lr
-    config.anneal_lr = args.anneal_lr
-    config.grad_norm_max = args.grad_norm_max
-    config.gamma = args.gamma
+    config.max_tsteps = int(args.max_tsteps)#
+    config.learn_start = int(args.learn_start)#
+    config.random_act = int(args.random_act)#
+    config.nenvs = int(args.nenvs)#
+    config.update_freq = int(args.update_freq)#
+    config.lr = args.lr#
+    config.anneal_lr = args.anneal_lr#
+    config.grad_norm_max = args.grad_norm_max#
+    config.gamma = args.gamma#
 
     # Optimizer params
-    config.rms_alpha = args.rms_alpha
-    config.optim_eps = args.optim_eps
+    config.rms_alpha = args.rms_alpha#
+    config.optim_eps = args.optim_eps#
 
     # memory
-    config.replay_size = int(args.replay_size)
-    config.batch_size = int(args.batch_size)
-    config.tnet_update = int(args.tnet_update)
-    config.polyak_coef = float(args.polyak_coef)
+    config.replay_size = int(args.replay_size)#
+    config.batch_size = int(args.batch_size)#
+    config.tnet_update = int(args.tnet_update)#
+    config.polyak_coef = float(args.polyak_coef)#
 
     # epsilon variables
-    config.eps_start = args.eps_start
-    config.eps_end = args.eps_end
-    config.eps_decay = args.eps_decay
+    config.eps_start = args.eps_start#
+    config.eps_end = args.eps_end#
+    config.eps_decay = args.eps_decay#
 
     # Multi-step returns
-    config.n_steps = int(args.n_steps)
+    config.n_steps = int(args.n_steps)#
 
     # Double DQN
-    config.double_dqn = args.double_dqn
+    config.double_dqn = args.double_dqn#
 
     # Priority Replay
-    config.priority_replay = args.priority_replay
-    config.priority_alpha = args.priority_alpha
-    config.priority_beta_start = args.priority_beta_start
-    config.priority_beta_tsteps = args.priority_beta_steps
+    config.priority_replay = args.priority_replay#
+    config.priority_alpha = args.priority_alpha#
+    config.priority_beta_start = args.priority_beta_start#
+    config.priority_beta_steps = args.priority_beta_steps#
 
     # Dueling DQN
-    config.dueling_dqn = args.dueling_dqn
+    config.dueling_dqn = args.dueling_dqn#
 
     # Noisy Nets
-    config.noisy_nets = args.noisy_nets
-    config.sigma_init = args.noisy_sigma
+    config.noisy_nets = args.noisy_nets#
+    config.noisy_sigma = args.noisy_sigma#
 
     # Categorical Params
-    config.c51_atoms = args.c51_atoms
-    config.c51_vmax = args.c51_vmax
-    config.c51_vmin = args.c51_vmin
+    config.c51_atoms = args.c51_atoms#
+    config.c51_vmax = args.c51_vmax#
+    config.c51_vmin = args.c51_vmin#
 
     # Quantile Regression Parameters
     # config.quantiles = 51
@@ -392,7 +441,7 @@ if __name__ == '__main__':
 
     # A2C Controls
     config.entropy_coef = args.entropy_coef
-    config.entropy_tuning = args.entropy_tuning
+    config.entropy_tuning = args.entropy_tuning #SAC only
     config.value_loss_coef = args.value_loss_coef
 
     # GAE Controls
@@ -406,4 +455,4 @@ if __name__ == '__main__':
     config.disable_ppo_clip_value = args.disable_ppo_clip_value
     config.disable_ppo_clip_schedule = args.disable_ppo_clip_schedule
 
-    train(config, Agent)
+    train(config, Agent, valid_arguments, default_arguments)

@@ -10,11 +10,14 @@ from agents.DQN import Agent as DQN_Agent
 
 
 class Agent(DQN_Agent):
-    def __init__(self, env=None, config=None, log_dir='/tmp/gym'):
+    def __init__(self, env=None, config=None, log_dir='/tmp/gym', tb_writer=None,
+        valid_arguments=set(), default_arguments={}):
+
         self.sequence_length = config.drqn_sequence_length
 
-        super().__init__(env=env, config=config,
-                                    log_dir=log_dir, tb_writer=tb_writer)
+        super().__init__(env=env, config=config, log_dir=log_dir, 
+            tb_writer=tb_writer, valid_arguments=valid_arguments,
+            default_arguments=default_arguments)
 
         self.reset_hx()
 
