@@ -144,19 +144,20 @@ class Agent(BaseAgent):
         loss = action_loss + self.config.value_loss_coef * value_loss
         loss -= self.config.entropy_coef * dist_entropy
 
-        self.tb_writer.add_scalar('Loss/Total Loss', loss.item(), tstep)
-        self.tb_writer.add_scalar(
-            'Loss/Policy Loss', action_loss.item(), tstep)
-        self.tb_writer.add_scalar('Loss/Value Loss', value_loss.item(), tstep)
-        self.tb_writer.add_scalar('Loss/Forward Dynamics Loss', 0., tstep)
-        self.tb_writer.add_scalar('Loss/Inverse Dynamics Loss', 0., tstep)
+        if self.tb_writer:
+            self.tb_writer.add_scalar('Loss/Total Loss', loss.item(), tstep)
+            self.tb_writer.add_scalar(
+                'Loss/Policy Loss', action_loss.item(), tstep)
+            self.tb_writer.add_scalar('Loss/Value Loss', value_loss.item(), tstep)
+            self.tb_writer.add_scalar('Loss/Forward Dynamics Loss', 0., tstep)
+            self.tb_writer.add_scalar('Loss/Inverse Dynamics Loss', 0., tstep)
 
-        self.tb_writer.add_scalar('Policy/Entropy', dist_entropy.item(), tstep)
-        self.tb_writer.add_scalar(
-            'Policy/Value Estimate', values.detach().mean().item(), tstep)
+            self.tb_writer.add_scalar('Policy/Entropy', dist_entropy.item(), tstep)
+            self.tb_writer.add_scalar(
+                'Policy/Value Estimate', values.detach().mean().item(), tstep)
 
-        self.tb_writer.add_scalar('Learning/Learning Rate', np.mean(
-            [param_group['lr'] for param_group in self.optimizer.param_groups]), tstep)
+            self.tb_writer.add_scalar('Learning/Learning Rate', np.mean(
+                [param_group['lr'] for param_group in self.optimizer.param_groups]), tstep)
 
         return loss, action_loss, value_loss, dist_entropy, 0.
 
@@ -178,18 +179,19 @@ class Agent(BaseAgent):
                     grad_norm += param_norm.item() ** 2
             grad_norm = grad_norm ** (1./2.)
 
-            self.tb_writer.add_scalar('Learning/Grad Norm', grad_norm, tstep)
+            if self.tb_writer:
+                self.tb_writer.add_scalar('Learning/Grad Norm', grad_norm, tstep)
 
-            if self.config.noisy_nets:
-                sigma_norm = 0.
-                for name, p in self.policy_value_net.named_parameters():
-                    if p.requires_grad and 'sigma' in name:
-                        param_norm = p.data.norm(2)
-                        sigma_norm += param_norm.item() ** 2
-                sigma_norm = sigma_norm ** (1./2.)
+                if self.config.noisy_nets:
+                    sigma_norm = 0.
+                    for name, p in self.policy_value_net.named_parameters():
+                        if p.requires_grad and 'sigma' in name:
+                            param_norm = p.data.norm(2)
+                            sigma_norm += param_norm.item() ** 2
+                    sigma_norm = sigma_norm ** (1./2.)
 
-                self.tb_writer.add_scalar(
-                    'Policy/Sigma Norm', sigma_norm, tstep)
+                    self.tb_writer.add_scalar(
+                        'Policy/Sigma Norm', sigma_norm, tstep)
 
         return value_loss.item(), action_loss.item(), dist_entropy.item(), dynamics_loss
 
@@ -219,15 +221,17 @@ class Agent(BaseAgent):
         for idx, inf in enumerate(info):
             if 'episode' in inf.keys():
                 self.last_100_rewards.append(inf['episode']['r'])
-                self.tb_writer.add_scalar(
-                    'Performance/Environment Reward', inf['episode']['r'], current_timestep+idx)
-                self.tb_writer.add_scalar(
-                    'Performance/Episode Length', inf['episode']['l'], current_timestep+idx)
+                if self.tb_writer:
+                    self.tb_writer.add_scalar(
+                        'Performance/Environment Reward', inf['episode']['r'], current_timestep+idx)
+                    self.tb_writer.add_scalar(
+                        'Performance/Episode Length', inf['episode']['l'], current_timestep+idx)
 
             if done[idx]:
                 # write reward on completion
-                self.tb_writer.add_scalar(
-                    'Performance/Agent Reward', self.final_rewards[idx], current_timestep+idx)
+                if self.tb_writer:
+                    self.tb_writer.add_scalar(
+                        'Performance/Agent Reward', self.final_rewards[idx], current_timestep+idx)
 
             if 'bad_transition' in inf.keys():
                 bad_masks.append([0.0])

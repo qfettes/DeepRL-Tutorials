@@ -1,19 +1,12 @@
 
 # TODO: add arg to control type of noise in noisy nets
 # TODO: efficiency for priority replay functions
-# TODO: add hparams to tensorboard
-# TODO: add video to tensorboard
-# TODO: add inference mode
 # TODO: add random act for all algos
 # TODO: remove baselines dependency
-# TODO: convert hyperparams to dict
-# TODO: standardize command line arg names with the config names
-# TODO: fix noisy nets in SAC
 # TODO: change target network copying to use deepcopy everywhere
-# TODO: move/add parameter freezing to declare network for target nets
+# TODO: move/add parameter freezing to declare network for target nets for all algorithms
 # TODO: fix inference hparam
 # TODO: fix render hparam
-# TODO: fix SAC hparam
 
 from utils.wrappers import make_envs_general
 from utils.plot import plot_reward
@@ -184,9 +177,9 @@ parser.add_argument('--ppo-mini-batch', type=int, default=4,
                     help='[PPO Only] number of batches for ppo (default: 4)')
 parser.add_argument('--ppo-clip-param', type=float, default=0.1,
                     help='[PPO Only] ppo clip parameter (default: 0.1)')
-parser.add_argument('--disable-ppo-clip-value', action='store_false', default=True,
+parser.add_argument('--disable-ppo-clip-value', action='store_true', default=False,
                     help='[PPO Only] DON\'T clip value function in PPO')
-parser.add_argument('--disable-ppo-clip-schedule', action='store_false', default=True,
+parser.add_argument('--disable-ppo-clip-schedule', action='store_true', default=False,
                     help='[PPO Only] DON\'T linearly decay ppo clip by maximum timestep')
 
 

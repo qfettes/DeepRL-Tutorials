@@ -118,19 +118,20 @@ class Agent(A2C):
                                self.config.ppo_mini_batch)
         total_loss = value_loss_epoch + action_loss_epoch + dist_entropy_epoch
 
-        self.tb_writer.add_scalar('Loss/Total Loss', total_loss, tstep)
-        self.tb_writer.add_scalar('Loss/Policy Loss', action_loss_epoch, tstep)
-        self.tb_writer.add_scalar('Loss/Value Loss', value_loss_epoch, tstep)
-        self.tb_writer.add_scalar('Loss/Forward Dynamics Loss', 0., tstep)
-        self.tb_writer.add_scalar('Loss/Inverse Dynamics Loss', 0., tstep)
-        self.tb_writer.add_scalar('Policy/Entropy', dist_entropy_epoch, tstep)
-        self.tb_writer.add_scalar('Policy/Value Estimate', 0, tstep)
-        if all_sigma_norms:
+        if self.tb_writer:
+            self.tb_writer.add_scalar('Loss/Total Loss', total_loss, tstep)
+            self.tb_writer.add_scalar('Loss/Policy Loss', action_loss_epoch, tstep)
+            self.tb_writer.add_scalar('Loss/Value Loss', value_loss_epoch, tstep)
+            self.tb_writer.add_scalar('Loss/Forward Dynamics Loss', 0., tstep)
+            self.tb_writer.add_scalar('Loss/Inverse Dynamics Loss', 0., tstep)
+            self.tb_writer.add_scalar('Policy/Entropy', dist_entropy_epoch, tstep)
+            self.tb_writer.add_scalar('Policy/Value Estimate', 0, tstep)
+            if all_sigma_norms:
+                self.tb_writer.add_scalar(
+                    'Policy/Sigma Norm', np.mean(all_sigma_norms), tstep)
+            self.tb_writer.add_scalar('Learning/Learning Rate', np.mean(
+                [param_group['lr'] for param_group in self.optimizer.param_groups]), tstep)
             self.tb_writer.add_scalar(
-                'Policy/Sigma Norm', np.mean(all_sigma_norms), tstep)
-        self.tb_writer.add_scalar('Learning/Learning Rate', np.mean(
-            [param_group['lr'] for param_group in self.optimizer.param_groups]), tstep)
-        self.tb_writer.add_scalar(
-            'Learning/Grad Norm', np.mean(all_grad_norms), tstep)
+                'Learning/Grad Norm', np.mean(all_grad_norms), tstep)
 
         return value_loss_epoch, action_loss_epoch, dist_entropy_epoch, 0.

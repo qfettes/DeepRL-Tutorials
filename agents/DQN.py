@@ -179,11 +179,12 @@ class Agent(BaseAgent):
         loss = loss.mean()
 
         # log val estimates
-        with torch.no_grad():
-            self.tb_writer.add_scalar(
-                'Policy/Value Estimate', current_q_values.detach().mean().item(), tstep)
-            self.tb_writer.add_scalar(
-                'Policy/Next Value Estimate', target.detach().mean().item(), tstep)
+        if self.tb_writer:
+            with torch.no_grad():
+                self.tb_writer.add_scalar(
+                    'Policy/Value Estimate', current_q_values.detach().mean().item(), tstep)
+                self.tb_writer.add_scalar(
+                    'Policy/Next Value Estimate', target.detach().mean().item(), tstep)
 
         return loss
 
@@ -202,38 +203,39 @@ class Agent(BaseAgent):
         self.update_target_model()
 
         # more logging
-        with torch.no_grad():
-            self.tb_writer.add_scalar('Loss/Total Loss', loss.item(), tstep)
-            self.tb_writer.add_scalar('Learning/Learning Rate', np.mean(
-                [param_group['lr'] for param_group in self.optimizer.param_groups]), tstep)
+        if self.tb_writer:
+            with torch.no_grad():
+                self.tb_writer.add_scalar('Loss/Total Loss', loss.item(), tstep)
+                self.tb_writer.add_scalar('Learning/Learning Rate', np.mean(
+                    [param_group['lr'] for param_group in self.optimizer.param_groups]), tstep)
 
-            # log weight norm
-            weight_norm = 0.
-            for p in self.q_net.parameters():
-                param_norm = p.data.norm(2)
-                weight_norm += param_norm.item() ** 2
-            weight_norm = weight_norm ** (1./2.)
-            self.tb_writer.add_scalar(
-                'Learning/Weight Norm', weight_norm, tstep)
-
-            # log grad_norm
-            grad_norm = 0.
-            for p in self.q_net.parameters():
-                param_norm = p.grad.data.norm(2)
-                grad_norm += param_norm.item() ** 2
-            grad_norm = grad_norm ** (1./2.)
-            self.tb_writer.add_scalar('Learning/Grad Norm', grad_norm, tstep)
-
-            # log sigma param norm
-            if self.config.noisy_nets:
-                sigma_norm = 0.
-                for name, p in self.q_net.named_parameters():
-                    if p.requires_grad and 'sigma' in name:
-                        param_norm = p.data.norm(2)
-                        sigma_norm += param_norm.item() ** 2
-                sigma_norm = sigma_norm ** (1./2.)
+                # log weight norm
+                weight_norm = 0.
+                for p in self.q_net.parameters():
+                    param_norm = p.data.norm(2)
+                    weight_norm += param_norm.item() ** 2
+                weight_norm = weight_norm ** (1./2.)
                 self.tb_writer.add_scalar(
-                    'Policy/Sigma Norm', sigma_norm, tstep)
+                    'Learning/Weight Norm', weight_norm, tstep)
+
+                # log grad_norm
+                grad_norm = 0.
+                for p in self.q_net.parameters():
+                    param_norm = p.grad.data.norm(2)
+                    grad_norm += param_norm.item() ** 2
+                grad_norm = grad_norm ** (1./2.)
+                self.tb_writer.add_scalar('Learning/Grad Norm', grad_norm, tstep)
+
+                # log sigma param norm
+                if self.config.noisy_nets:
+                    sigma_norm = 0.
+                    for name, p in self.q_net.named_parameters():
+                        if p.requires_grad and 'sigma' in name:
+                            param_norm = p.data.norm(2)
+                            sigma_norm += param_norm.item() ** 2
+                    sigma_norm = sigma_norm ** (1./2.)
+                    self.tb_writer.add_scalar(
+                        'Policy/Sigma Norm', sigma_norm, tstep)
 
     def get_action(self, s, eps=0.1):
         with torch.no_grad():
@@ -259,7 +261,8 @@ class Agent(BaseAgent):
 
     def step(self, current_tstep, step=0):
         epsilon = self.anneal_eps(current_tstep)
-        self.tb_writer.add_scalar('Policy/Epsilon', epsilon, current_tstep)
+        if self.tb_writer:
+            self.tb_writer.add_scalar('Policy/Epsilon', epsilon, current_tstep)
 
         self.actions = self.get_action(self.observations, epsilon)
 
@@ -276,17 +279,19 @@ class Agent(BaseAgent):
             if done:
                 self.reset_hx(idx)
 
-                self.tb_writer.add_scalar(
-                    'Performance/Agent Reward', self.episode_rewards[idx], current_tstep+idx)
+                if self.tb_writer:
+                    self.tb_writer.add_scalar(
+                        'Performance/Agent Reward', self.episode_rewards[idx], current_tstep+idx)
                 self.episode_rewards[idx] = 0
 
         for idx, info in enumerate(self.infos):
             if 'episode' in info.keys():
                 self.last_100_rewards.append(info['episode']['r'])
-                self.tb_writer.add_scalar(
-                    'Performance/Environment Reward', info['episode']['r'], current_tstep+idx)
-                self.tb_writer.add_scalar(
-                    'Performance/Episode Length', info['episode']['l'], current_tstep+idx)
+                if self.tb_writer:
+                    self.tb_writer.add_scalar(
+                        'Performance/Environment Reward', info['episode']['r'], current_tstep+idx)
+                    self.tb_writer.add_scalar(
+                        'Performance/Episode Length', info['episode']['l'], current_tstep+idx)
 
     def update(self, current_tstep):
         self.update_(current_tstep)

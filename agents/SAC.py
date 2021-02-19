@@ -122,15 +122,16 @@ class Agent(DQN_Agent):
         value_loss = loss_q1.mean() + loss_q2.mean()
 
         # log val estimates
-        with torch.no_grad():
-            self.tb_writer.add_scalar('Policy/Value Estimate', torch.cat(
-                (current_q_values_1, current_q_values_2)).detach().mean().item(), tstep)
-            self.tb_writer.add_scalar(
-                'Policy/Next Value Estimate', target.detach().mean().item(), tstep)
-            self.tb_writer.add_scalar(
-                'Policy/Entropy Coefficient', self.config.entropy_coef, tstep)
-            self.tb_writer.add_scalar(
-                'Loss/Value Loss', value_loss.detach().item(), tstep)
+        if self.tb_writer:
+            with torch.no_grad():
+                self.tb_writer.add_scalar('Policy/Value Estimate', torch.cat(
+                    (current_q_values_1, current_q_values_2)).detach().mean().item(), tstep)
+                self.tb_writer.add_scalar(
+                    'Policy/Next Value Estimate', target.detach().mean().item(), tstep)
+                self.tb_writer.add_scalar(
+                    'Policy/Entropy Coefficient', self.config.entropy_coef, tstep)
+                self.tb_writer.add_scalar(
+                    'Loss/Value Loss', value_loss.detach().item(), tstep)
 
         return value_loss
 
@@ -148,18 +149,20 @@ class Agent(DQN_Agent):
         policy_loss = (self.config.entropy_coef * log_probs - q_val).mean()
 
         # log val estimates
-        with torch.no_grad():
-            self.tb_writer.add_scalar(
-                'Loss/Policy Loss', policy_loss.detach().item(), tstep)
+        if self.tb_writer:
+            with torch.no_grad():
+                self.tb_writer.add_scalar(
+                    'Loss/Policy Loss', policy_loss.detach().item(), tstep)
 
         return policy_loss, log_probs
 
     def compute_entropy_loss(self, action_log_probs, tstep):
         entropy_loss = -(self.log_entropy_coef * (action_log_probs + self.target_entropy).detach()).mean()
 
-        with torch.no_grad():
-            self.tb_writer.add_scalar(
-                'Loss/Policy Loss', entropy_loss.detach().item(), tstep)
+        if self.tb_writer:
+            with torch.no_grad():
+                self.tb_writer.add_scalar(
+                    'Loss/Policy Loss', entropy_loss.detach().item(), tstep)
 
         return entropy_loss
 
@@ -212,38 +215,39 @@ class Agent(DQN_Agent):
             self.update_target_model()
 
         # more logging
-        with torch.no_grad():
-            self.tb_writer.add_scalar('Loss/Total Loss', np.mean(loss), tstep)
-            self.tb_writer.add_scalar('Learning/Policy Learning Rate', np.mean([param_group['lr'] for param_group in self.policy_optimizer.param_groups]), tstep)
-            self.tb_writer.add_scalar('Learning/Value Learning Rate', np.mean([param_group['lr'] for param_group in self.value_optimizer.param_groups]), tstep)
+        if self.tb_writer:
+            with torch.no_grad():
+                self.tb_writer.add_scalar('Loss/Total Loss', np.mean(loss), tstep)
+                self.tb_writer.add_scalar('Learning/Policy Learning Rate', np.mean([param_group['lr'] for param_group in self.policy_optimizer.param_groups]), tstep)
+                self.tb_writer.add_scalar('Learning/Value Learning Rate', np.mean([param_group['lr'] for param_group in self.value_optimizer.param_groups]), tstep)
 
-            # log weight norm
-            weight_norm = 0.
-            for _, p in self.all_named_params:
-                param_norm = p.data.norm(2)
-                weight_norm += param_norm.item() ** 2
-            weight_norm = weight_norm ** (1./2.)
-            self.tb_writer.add_scalar(
-                'Learning/Weight Norm', weight_norm, tstep)
-
-            # log grad_norm
-            grad_norm = 0.
-            for _, p in self.all_named_params:
-                param_norm = p.grad.data.norm(2)
-                grad_norm += param_norm.item() ** 2
-            grad_norm = grad_norm ** (1./2.)
-            self.tb_writer.add_scalar('Learning/Grad Norm', grad_norm, tstep)
-
-            # log sigma param norm
-            if self.config.noisy_nets:
-                sigma_norm = 0.
-                for name, p in self.all_named_params:
-                    if p.requires_grad and 'sigma' in name:
-                        param_norm = p.data.norm(2)
-                        sigma_norm += param_norm.item() ** 2
-                sigma_norm = sigma_norm ** (1./2.)
+                # log weight norm
+                weight_norm = 0.
+                for _, p in self.all_named_params:
+                    param_norm = p.data.norm(2)
+                    weight_norm += param_norm.item() ** 2
+                weight_norm = weight_norm ** (1./2.)
                 self.tb_writer.add_scalar(
-                    'Policy/Sigma Norm', sigma_norm, tstep)
+                    'Learning/Weight Norm', weight_norm, tstep)
+
+                # log grad_norm
+                grad_norm = 0.
+                for _, p in self.all_named_params:
+                    param_norm = p.grad.data.norm(2)
+                    grad_norm += param_norm.item() ** 2
+                grad_norm = grad_norm ** (1./2.)
+                self.tb_writer.add_scalar('Learning/Grad Norm', grad_norm, tstep)
+
+                # log sigma param norm
+                if self.config.noisy_nets:
+                    sigma_norm = 0.
+                    for name, p in self.all_named_params:
+                        if p.requires_grad and 'sigma' in name:
+                            param_norm = p.data.norm(2)
+                            sigma_norm += param_norm.item() ** 2
+                    sigma_norm = sigma_norm ** (1./2.)
+                    self.tb_writer.add_scalar(
+                        'Policy/Sigma Norm', sigma_norm, tstep)
 
     def get_action(self, obs, deterministic=False):
         self.policy_net.sample_noise()
@@ -270,17 +274,19 @@ class Agent(DQN_Agent):
             if done:
                 self.reset_hx(idx)
 
-                self.tb_writer.add_scalar(
-                    'Performance/Agent Reward', self.episode_rewards[idx], current_tstep+idx)
+                if self.tb_writer:
+                    self.tb_writer.add_scalar(
+                        'Performance/Agent Reward', self.episode_rewards[idx], current_tstep+idx)
                 self.episode_rewards[idx] = 0
 
         for idx, info in enumerate(self.infos):
             if 'episode' in info.keys():
                 self.last_100_rewards.append(info['episode']['r'])
-                self.tb_writer.add_scalar(
-                    'Performance/Environment Reward', info['episode']['r'], current_tstep+idx)
-                self.tb_writer.add_scalar(
-                    'Performance/Episode Length', info['episode']['l'], current_tstep+idx)
+                if self.tb_writer:
+                    self.tb_writer.add_scalar(
+                        'Performance/Environment Reward', info['episode']['r'], current_tstep+idx)
+                    self.tb_writer.add_scalar(
+                        'Performance/Episode Length', info['episode']['l'], current_tstep+idx)
             
             # ignore time limit done signal in updates
             if self.config.correct_time_limits and 'bad_transition' in info.keys() and info['bad_transition']:
