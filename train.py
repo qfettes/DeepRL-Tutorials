@@ -37,10 +37,10 @@ gym.logger.set_level(40)
 parser = argparse.ArgumentParser(description='RL')
 # Meta Info
 parser.add_argument('--device', default='cuda',
-                    help='device to use: cuda | cpu')
+                    help='device to train on (default: cuda)')
 parser.add_argument('--algo', default='dqn',
                     help='algorithm to use: dqn | c51 | a2c | ppo | sac')
-parser.add_argument('--env-name', default='BreakoutNoFrameskip-v4',
+parser.add_argument('--env-id', default='BreakoutNoFrameskip-v4',
                     help='environment to train on (default: BreakoutNoFrameskip-v4)')
 parser.add_argument('--seed', type=int, default=None, help='random seed. \
                         Note if seed is None then it will be randomly \
@@ -172,7 +172,7 @@ parser.add_argument('--entropy-tuning', action='store_true', default=False,
                     help='[SAC ONLY] Automatically tune entropy-coef. Ignores input to --entropy-coef (default: False)')
 
 # GAE Controls
-parser.add_argument('--enable-gae', action='store_true', default=False,
+parser.add_argument('--use-gae', action='store_true', default=False,
                     help='[A2C-Style Only] enable generalized advantage estimation for pg methods')
 parser.add_argument('--gae-tau', type=float, default=0.95,
                     help='[A2C-Style Only] gae parameter (default: 0.95)')
@@ -216,13 +216,13 @@ def train(config, Agent, ipynb=False):
             torch.cuda.manual_seed(config.seed)
 
     envs = make_envs_general(config.env_id, config.seed, log_dir,
-                             config.num_envs, stack_frames=config.stack_frames,
+                             config.nenvs, stack_frames=config.stack_frames,
                              adaptive_repeat=config.adaptive_repeat,
                              sticky_actions=config.sticky_actions, clip_rewards=True)
 
     agent = Agent(env=envs, config=config, log_dir=base_dir, tb_writer=writer)
 
-    max_epochs = int(config.max_tsteps / config.num_envs / config.update_freq)
+    max_epochs = int(config.max_tsteps / config.nenvs / config.update_freq)
 
     progress = range(1, max_epochs + 1)
     if not ipynb:
@@ -240,11 +240,11 @@ def train(config, Agent, ipynb=False):
         for step in range(config.update_freq):
             # current step for env 0
             current_tstep = (epoch-1)*config.update_freq * \
-                config.num_envs + step*config.num_envs
+                config.nenvs + step*config.nenvs
 
             agent.step(current_tstep, step)
 
-            current_tstep = (epoch) * config.num_envs * config.update_freq
+            current_tstep = (epoch) * config.nenvs * config.update_freq
             if current_tstep % config.save_threshold == 0:
                 agent.save_w()
 
@@ -286,8 +286,13 @@ if __name__ == '__main__':
     #   record which algorithms are relevant to each parameter
     #   for each algorithm, throw error when irrelevant parameter
     #   is changed from default
-    # print(vars(args))
-    # exit()
+
+    # get all default arguments
+    all_defaults = {}
+    for key in vars(args):
+        all_defaults[key] = parser.get_default(key)
+    print(vars(args))
+    exit()
 
     # Import Correct Agent
     if args.algo == 'dqn':
@@ -310,7 +315,7 @@ if __name__ == '__main__':
     # meta info
     config.device = args.device
     config.algo = args.algo
-    config.env_id = args.env_name
+    config.env_id = args.env_id
     config.seed = args.seed
     config.inference = args.inference
     config.print_threshold = int(args.print_threshold)
@@ -329,7 +334,7 @@ if __name__ == '__main__':
     config.max_tsteps = int(args.max_tsteps)
     config.learn_start = int(args.learn_start)
     config.random_act = int(args.random_act)
-    config.num_envs = int(args.nenvs)
+    config.nenvs = int(args.nenvs)
     config.update_freq = int(args.update_freq)
     config.lr = args.lr
     config.anneal_lr = args.anneal_lr
@@ -341,18 +346,18 @@ if __name__ == '__main__':
     config.optim_eps = args.optim_eps
 
     # memory
-    config.exp_replay_size = int(args.replay_size)
+    config.replay_size = int(args.replay_size)
     config.batch_size = int(args.batch_size)
-    config.target_net_update_freq = int(args.tnet_update)
+    config.tnet_update = int(args.tnet_update)
     config.polyak_coef = float(args.polyak_coef)
 
     # epsilon variables
-    config.epsilon_start = args.eps_start
-    config.epsilon_final = args.eps_end
-    config.epsilon_decay = args.eps_decay
+    config.eps_start = args.eps_start
+    config.eps_end = args.eps_end
+    config.eps_decay = args.eps_decay
 
     # Multi-step returns
-    config.N_steps = int(args.n_steps)
+    config.n_steps = int(args.n_steps)
 
     # Double DQN
     config.double_dqn = args.double_dqn
@@ -388,17 +393,17 @@ if __name__ == '__main__':
     # A2C Controls
     config.entropy_coef = args.entropy_coef
     config.entropy_tuning = args.entropy_tuning
-    config.value_loss_weight = args.value_loss_coef
+    config.value_loss_coef = args.value_loss_coef
 
     # GAE Controls
-    config.use_gae = args.enable_gae
+    config.use_gae = args.use_gae
     config.gae_tau = args.gae_tau
 
     # PPO Controls
     config.ppo_epoch = int(args.ppo_epoch)
     config.ppo_mini_batch = int(args.ppo_mini_batch)
     config.ppo_clip_param = args.ppo_clip_param
-    config.use_ppo_vf_clip = args.disable_ppo_clip_value
-    config.anneal_ppo_clip = args.disable_ppo_clip_schedule
+    config.disable_ppo_clip_value = args.disable_ppo_clip_value
+    config.disable_ppo_clip_schedule = args.disable_ppo_clip_schedule
 
     train(config, Agent)

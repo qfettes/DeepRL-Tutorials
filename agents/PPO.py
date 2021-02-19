@@ -16,7 +16,7 @@ class Agent(A2C):
         self.optimizer = optim.Adam(self.policy_value_net.parameters(
         ), lr=self.config.lr, eps=self.config.optim_eps)
 
-        if self.config.anneal_ppo_clip:
+        if self.not config.disable_ppo_clip_schedule:
             self.anneal_clip_param_fun = LinearSchedule(
                 self.config.ppo_clip_param, 0.0, 1.0, config.max_tsteps)
         else:
@@ -37,7 +37,7 @@ class Agent(A2C):
                             1.0 + clip_param) * adv_targ
         action_loss = -torch.min(surr1, surr2).mean()
 
-        if self.config.use_ppo_vf_clip:
+        if self.not config.disable_ppo_clip_value:
             value_pred_clipped = value_preds_batch + \
                 (values - value_preds_batch).clamp(-clip_param, clip_param)
             value_losses = (values - return_batch).pow(2)
@@ -47,7 +47,7 @@ class Agent(A2C):
         else:
             value_loss = (return_batch - values).pow(2).mul(0.5).mean()
 
-        loss = action_loss + self.config.value_loss_weight * value_loss
+        loss = action_loss + self.config.value_loss_coef * value_loss
         loss -= self.config.entropy_coef * dist_entropy
 
         return loss, action_loss, value_loss, dist_entropy

@@ -66,24 +66,24 @@ class Agent(BaseAgent):
     def declare_memory(self):
         if self.config.priority_replay:
             self.memory = PrioritizedReplayMemory(
-                self.config.exp_replay_size, self.config.priority_alpha, self.config.priority_beta_start, self.config.priority_beta_tsteps)
+                self.config.replay_size, self.config.priority_alpha, self.config.priority_beta_start, self.config.priority_beta_tsteps)
         else:
-            self.memory = ExperienceReplayMemory(self.config.exp_replay_size)
+            self.memory = ExperienceReplayMemory(self.config.replay_size)
 
     def training_priors(self):
-        self.episode_rewards = np.zeros(self.config.num_envs)
+        self.episode_rewards = np.zeros(self.config.nenvs)
         self.last_100_rewards = deque(maxlen=100)
 
-        if len(self.config.epsilon_final) == 1:
-            if self.config.epsilon_decay[0] > 1.0:
+        if len(self.config.eps_end) == 1:
+            if self.config.eps_decay[0] > 1.0:
                 self.anneal_eps = ExponentialSchedule(
-                    self.config.epsilon_start, self.config.epsilon_final[0], self.config.epsilon_decay[0], self.config.max_tsteps)
+                    self.config.eps_start, self.config.eps_end[0], self.config.eps_decay[0], self.config.max_tsteps)
             else:
                 self.anneal_eps = LinearSchedule(
-                    self.config.epsilon_start, self.config.epsilon_final[0], self.config.epsilon_decay[0], self.config.max_tsteps)
+                    self.config.eps_start, self.config.eps_end[0], self.config.eps_decay[0], self.config.max_tsteps)
         else:
             self.anneal_eps = PiecewiseSchedule(
-                self.config.epsilon_start, self.config.epsilon_final, self.config.epsilon_decay, self.config.max_tsteps)
+                self.config.eps_start, self.config.eps_end, self.config.eps_decay, self.config.max_tsteps)
 
         self.prev_observations, self.actions, self.rewards, self.dones = None, None, None, None,
         self.observations = self.envs.reset()
@@ -96,7 +96,7 @@ class Agent(BaseAgent):
         # q learning requires off-policy correction
         self.nstep_buffer.append([s, a, r, s_, t])
 
-        if(len(self.nstep_buffer) < self.config.N_steps):
+        if(len(self.nstep_buffer) < self.config.n_steps):
             return
 
         R = np.zeros_like(r)
@@ -158,11 +158,11 @@ class Agent(BaseAgent):
                 if self.config.double_dqn:
                     max_next_actions = torch.argmax(self.q_net(
                         non_final_next_states), dim=1).view(-1, 1)
-                    next_q_values[non_final_mask] = (self.config.gamma**self.config.N_steps) * self.target_q_net(
+                    next_q_values[non_final_mask] = (self.config.gamma**self.config.n_steps) * self.target_q_net(
                         non_final_next_states).gather(1, max_next_actions)
                 else:
                     next_q_values[non_final_mask] = (
-                        self.config.gamma**self.config.N_steps) * self.target_q_net(non_final_next_states).max(dim=1)[0].view(-1, 1)
+                        self.config.gamma**self.config.n_steps) * self.target_q_net(non_final_next_states).max(dim=1)[0].view(-1, 1)
             target = batch_reward + next_q_values
 
         loss = self.loss_fun(current_q_values, target)
@@ -246,7 +246,7 @@ class Agent(BaseAgent):
     def update_target_model(self):
         self.update_count += 1
         self.update_count = int(self.update_count) % int(
-            self.config.target_net_update_freq)
+            self.config.tnet_update)
         if self.update_count == 0:
             self.target_q_net.load_state_dict(self.q_net.state_dict())
 

@@ -299,7 +299,7 @@ class Agent(DQN_Agent):
             if self.config.correct_time_limits and 'bad_transition' in info.keys() and info['bad_transition']:
                 self.dones[idx] = False
 
-        self.append_to_replay(self.prev_observations, self.actions.reshape((self.config.num_envs, -1)),
+        self.append_to_replay(self.prev_observations, self.actions.reshape((self.config.nenvs, -1)),
                               self.rewards, self.observations, self.dones.astype(int))
 
     def update(self, current_tstep):

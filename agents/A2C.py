@@ -45,7 +45,7 @@ class Agent(BaseAgent):
         else:
             self.policy_value_net.train()
 
-        self.rollouts = RolloutStorage(self.config.update_freq, self.config.num_envs,
+        self.rollouts = RolloutStorage(self.config.update_freq, self.config.nenvs,
                                        self.num_feats, self.envs.action_space, self.policy_value_net.state_size,
                                        self.device, config.use_gae, config.gae_tau, config.correct_time_limits)
 
@@ -67,8 +67,8 @@ class Agent(BaseAgent):
 
         self.rollouts.observations[0].copy_(obs)
 
-        self.episode_rewards = np.zeros(self.config.num_envs, dtype=np.float)
-        self.final_rewards = np.zeros(self.config.num_envs, dtype=np.float)
+        self.episode_rewards = np.zeros(self.config.nenvs, dtype=np.float)
+        self.final_rewards = np.zeros(self.config.nenvs, dtype=np.float)
         self.last_100_rewards = deque(maxlen=100)
 
     def get_action(self, s, states, masks, deterministic=False):
@@ -138,7 +138,7 @@ class Agent(BaseAgent):
 
         action_loss = -(advantages.detach() * action_log_probs).mean()
 
-        loss = action_loss + self.config.value_loss_weight * value_loss
+        loss = action_loss + self.config.value_loss_coef * value_loss
         loss -= self.config.entropy_coef * dist_entropy
 
         self.tb_writer.add_scalar('Loss/Total Loss', loss.item(), tstep)

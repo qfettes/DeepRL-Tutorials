@@ -49,7 +49,7 @@ class Agent(DQN_Agent):
                         -1)[0].view(-1, 1, 1).expand(-1, -1, self.config.c51_atoms)
                 max_next_dist = max_next_dist.squeeze()
 
-            Tz = batch_reward.view(-1, 1) + (self.config.gamma**self.config.N_steps) * \
+            Tz = batch_reward.view(-1, 1) + (self.config.gamma**self.config.n_steps) * \
                 self.supports.view(1, -1) * \
                 non_final_mask.to(torch.float).view(-1, 1)
             Tz = Tz.clamp(self.config.c51_vmin, self.config.c51_vmax)

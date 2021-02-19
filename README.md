@@ -33,7 +33,7 @@ Below is a list of commands to train all algorithms without the use of Ipython n
 
 ### DQN (Quick Verification):
 ```
-python train.py --env-name PongNoFrameskip-v4 --stack-frames 1 --eps-end 0.01 --eps-decay 30000 --tnet-update 1000 --replay-size 100000 --learn-start 10000 --max-tsteps 1000000 --update-freq 1 --optim-eps 1.0e-8
+python train.py --env-id PongNoFrameskip-v4 --stack-frames 1 --eps-end 0.01 --eps-decay 30000 --tnet-update 1000 --replay-size 100000 --learn-start 10000 --max-tsteps 1000000 --update-freq 1 --optim-eps 1.0e-8
 ```
 
 ### DQN
@@ -83,19 +83,19 @@ python train.py --algo ppo --print-threshold 10 --save-threshold 100 --max-tstep
 
 ### Continuous A2C (Not Working):
 ```
-python train.py --env-name Reacher-v2 --algo a2c --print-threshold 25 --save-threshold 250 --max-tsteps 10000000 --learn-start 0 --nenvs 16 --update-freq 200 --lr 0.0007 --anneal-lr --max-grad-norm 0.5 --body-out 200 --gru-size 128 --recurrent-policy-gradient
+python train.py --env-id Reacher-v2 --algo a2c --print-threshold 25 --save-threshold 250 --max-tsteps 10000000 --learn-start 0 --nenvs 16 --update-freq 200 --lr 0.0007 --anneal-lr --max-grad-norm 0.5 --body-out 200 --gru-size 128 --recurrent-policy-gradient
 ```
 
 ### Continuous PPO:
 ```
-python train.py --env-name Reacher-v2 --algo ppo --print-threshold 1 --save-threshold 10 --max-tsteps 10000000 --learn-start 0 --nenvs 1 --update-freq 2048 --lr 3.0e-4 --anneal-lr --max-grad-norm 0.5 --value-loss-coef 0.5 --entropy-coef 0.0 --enable-gae --disable-ppo-clip-value --ppo-epoch 10 --ppo-mini-batch 32 --ppo-clip-param 0.2 --body-out 200 --gru-size 128
+python train.py --env-id Reacher-v2 --algo ppo --print-threshold 1 --save-threshold 10 --max-tsteps 10000000 --learn-start 0 --nenvs 1 --update-freq 2048 --lr 3.0e-4 --anneal-lr --max-grad-norm 0.5 --value-loss-coef 0.5 --entropy-coef 0.0 --enable-gae --disable-ppo-clip-value --ppo-epoch 10 --ppo-mini-batch 32 --ppo-clip-param 0.2 --body-out 200 --gru-size 128
 ```
 
 ### Soft Actor-Critic
 ```
-python train.py --algo sac --env-name HalfCheetahPyBulletEnv-v0 --gamma 0.99 --polyak-coef 0.995 --lr 0.003 --entropy-coef 0.2 --batch-size 100 --max-tsteps 1000000 --learn-start 1000 --random-act 10000 --replay-size 1000000 --update-freq 50 --state-norm 1.0 --optim-eps 1e-8 --correct-time-limits
+python train.py --algo sac --env-id HalfCheetahPyBulletEnv-v0 --gamma 0.99 --polyak-coef 0.995 --lr 0.003 --entropy-coef 0.2 --batch-size 100 --max-tsteps 1000000 --learn-start 1000 --random-act 10000 --replay-size 1000000 --update-freq 50 --state-norm 1.0 --optim-eps 1e-8 --correct-time-limits
 
-python train.py --algo sac --env-name HalfCheetah-v2 --gamma 0.99 --polyak-coef 0.995 --lr 0.003 --entropy-coef 0.2 --batch-size 100 --max-tsteps 1000000 --learn-start 1000 --random-act 10000 --replay-size 1000000 --update-freq 50 --state-norm 1.0 --optim-eps 1e-8 --correct-time-limits
+python train.py --algo sac --env-id HalfCheetah-v2 --gamma 0.99 --polyak-coef 0.995 --lr 0.003 --entropy-coef 0.2 --batch-size 100 --max-tsteps 1000000 --learn-start 1000 --random-act 10000 --replay-size 1000000 --update-freq 50 --state-norm 1.0 --optim-eps 1e-8 --correct-time-limits
 ```
     
 ## Requirements: 

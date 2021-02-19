@@ -33,6 +33,9 @@ class BaseAgent(object):
         self.rewards = []
 
         # self.action_selections = [0 for _ in range(env.action_space.n)]
+    
+    def check_args(self, arg, defaults):
+        raise NotImplementedError("Method must have an argument checker")
 
     def save_w(self):
         torch.save(self.q_net.state_dict(), os.path.join(
