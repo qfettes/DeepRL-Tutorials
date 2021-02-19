@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 
-import sys
 import itertools
+import os
 from collections import deque
 from copy import deepcopy
 
@@ -15,7 +15,6 @@ from utils.ReplayMemory import ExperienceReplayMemory, PrioritizedReplayMemory
 from agents.BaseAgent import BaseAgent
 from agents.DQN import Agent as DQN_Agent
 
-import random
 
 class Agent(DQN_Agent):
     def __init__(self, env=None, config=None, log_dir='/tmp/gym', tb_writer=None,
@@ -293,10 +292,42 @@ class Agent(DQN_Agent):
     def update(self, current_tstep):
         self.update_(current_tstep)
 
-    # TODO: Fix saving
     def save_w(self):
-        pass
+        torch.save(self.policy_net.state_dict(), os.path.join(
+            self.log_dir, 'saved_model', 'policy_model.dump'))
+        torch.save(self.policy_optimizer.state_dict(), os.path.join(
+            self.log_dir, 'saved_model', 'policy_optim.dump'))
 
-    # TODO: Fix loading
+        torch.save(self.q_net.state_dict(), os.path.join(
+            self.log_dir, 'saved_model', 'value_model.dump'))
+        torch.save(self.value_optimizer.state_dict(), os.path.join(
+            self.log_dir, 'saved_model', 'value_optim.dump'))
+
+        if self.config.entropy_tuning:
+            torch.save(self.log_entropy_coef, os.path.join(
+            self.log_dir, 'saved_model', 'entropy_model.dump'))
+            torch.save(self.entropy_optimizer, os.path.join(
+                self.log_dir, 'saved_model', 'entropy_optim.dump'))
+
     def load_w(self):
-        pass
+        fname_model = os.path.join(self.log_dir, 'saved_model', 'policy_model.dump')
+        fname_optim = os.path.join(self.log_dir, 'saved_model', 'policy_model.dump')
+        if os.path.isfile(fname_model):
+            self.policy_value_net.load_state_dict(torch.load(fname_model))
+        if os.path.isfile(fname_optim):
+            self.optimizer.load_state_dict(torch.load(fname_optim))
+
+        fname_model = os.path.join(self.log_dir, 'saved_model', 'value_model.dump')
+        fname_optim = os.path.join(self.log_dir, 'saved_model', 'value_model.dump')
+        if os.path.isfile(fname_model):
+            self.policy_value_net.load_state_dict(torch.load(fname_model))
+        if os.path.isfile(fname_optim):
+            self.optimizer.load_state_dict(torch.load(fname_optim))
+
+        if self.config.entropy_tuning:
+            fname_model = os.path.join(self.log_dir, 'saved_model', 'entropy_model.dump')
+            fname_optim = os.path.join(self.log_dir, 'saved_model', 'entropy_optim.dump')
+            if os.path.isfile(fname_model):
+                self.policy_value_net.load_state_dict(torch.load(fname_model))
+            if os.path.isfile(fname_optim):
+                self.optimizer.load_state_dict(torch.load(fname_optim))
