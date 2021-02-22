@@ -197,7 +197,7 @@ class Agent(DQN_Agent):
                 [self.log_entropy_coef], self.config.grad_norm_max)
             self.entropy_optimizer.step()
 
-            self.config.entropy_coef = self.log_entropy_coef.exp()
+            self.config.entropy_coef = self.log_entropy_coef.exp().detach()
 
         # Unfreeze Q-networks so you can optimize it at next DDPG step.
         for p in self.q_net.parameters():
@@ -317,23 +317,25 @@ class Agent(DQN_Agent):
 
     def load_w(self):
         fname_model = os.path.join(self.log_dir, 'saved_model', 'policy_model.dump')
-        fname_optim = os.path.join(self.log_dir, 'saved_model', 'policy_model.dump')
+        fname_optim = os.path.join(self.log_dir, 'saved_model', 'policy_optim.dump')
         if os.path.isfile(fname_model):
-            self.policy_value_net.load_state_dict(torch.load(fname_model))
+            self.policy_net.load_state_dict(torch.load(fname_model))
         if os.path.isfile(fname_optim):
-            self.optimizer.load_state_dict(torch.load(fname_optim))
+            self.policy_optimizer.load_state_dict(torch.load(fname_optim))
 
         fname_model = os.path.join(self.log_dir, 'saved_model', 'value_model.dump')
-        fname_optim = os.path.join(self.log_dir, 'saved_model', 'value_model.dump')
+        fname_optim = os.path.join(self.log_dir, 'saved_model', 'value_optim.dump')
         if os.path.isfile(fname_model):
-            self.policy_value_net.load_state_dict(torch.load(fname_model))
+            self.q_net.load_state_dict(torch.load(fname_model))
+            self.target_q_net = deepcopy(self.q_net)
         if os.path.isfile(fname_optim):
-            self.optimizer.load_state_dict(torch.load(fname_optim))
+            print(torch.load(fname_optim))
+            self.value_optimizer.load_state_dict(torch.load(fname_optim))
 
         if self.config.entropy_tuning:
             fname_model = os.path.join(self.log_dir, 'saved_model', 'entropy_model.dump')
             fname_optim = os.path.join(self.log_dir, 'saved_model', 'entropy_optim.dump')
             if os.path.isfile(fname_model):
-                self.policy_value_net.load_state_dict(torch.load(fname_model))
-            if os.path.isfile(fname_optim):
-                self.optimizer.load_state_dict(torch.load(fname_optim))
+                self.log_entropy_coef = torch.load(fname_model)
+            if os.path.isfile(fname_optim): # not exactly right
+                self.entropy_optimizer = optim.Adam([self.log_entropy_coef], lr=self.config.lr)

@@ -107,6 +107,7 @@ python train.py --algo sac --env-id HalfCheetah-v2 --gamma 0.99 --polyak-coef 0.
 * openCV 
 * baselines
 * tensorboard
+* pytest
 
 # Known Reproduction Differences
 * DQN
