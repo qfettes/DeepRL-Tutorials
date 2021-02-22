@@ -60,7 +60,7 @@ class Agent(BaseAgent):
         self.training_priors()
 
     def declare_networks(self):
-        self.policy_value_net = ActorCritic(self.num_feats, self.action_space, body_out=self.config.body_out, use_gru=self.config.recurrent_policy_gradient,
+        self.policy_value_net = ActorCritic(self.num_feats, self.action_space, use_gru=self.config.recurrent_policy_gradient,
                                             gru_size=self.config.gru_size, noisy_nets=self.config.noisy_nets, noisy_sigma=self.config.noisy_sigma)
 
     def training_priors(self):

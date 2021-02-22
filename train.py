@@ -1,4 +1,3 @@
-
 # TODO: add arg to control type of noise in noisy nets
 # TODO: efficiency for priority replay functions
 # TODO: add random act for all algos

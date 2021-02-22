@@ -64,7 +64,7 @@ class SimpleBody(nn.Module):
 
 
 class AtariBodyAC(nn.Module):
-    def __init__(self, input_shape, body_out=64, noisy_nets=False, noisy_sigma=0.4):
+    def __init__(self, input_shape, body_out=512, noisy_nets=False, noisy_sigma=0.5):
         super(AtariBodyAC, self).__init__()
         self.body_out = body_out
         self.noisy_nets = noisy_nets

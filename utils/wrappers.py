@@ -110,25 +110,82 @@ class WrapPyTorch(gym.ObservationWrapper):
         # return observation.transpose(2, 0, 1)
         return np.array(observation).transpose(2, 0, 1)
 
+class WrapOneHot(gym.ObservationWrapper):
+    def __init__(self, env=None):
+        super().__init__(env)
+        self.observation_space = Box(
+            low=0.0,
+            high=1.0,
+            shape=(self.observation_space.n,),
+            dtype=np.float)
+
+    def observation(self, observation):
+        obs = np.zeros(self.observation_space.shape[0])
+        obs[observation] = 1.
+        return obs
+
+class WrapSignal(gym.Wrapper):
+    def step(self, a):
+        obs, reward, done, info = self.env.step(a)
+        if done and reward == 0.0:
+            reward = -1.0
+
+        return obs, reward, done, info
 
 def make_envs_general(env_id, seed, log_dir, num_envs, stack_frames=4, adaptive_repeat=[4], sticky_actions=0.0, clip_rewards=True):
     env = gym.make(env_id)
+    toy = True if env.observation_space.__class__.__name__ == 'Discrete' else False
     atari = True if env.action_space.__class__.__name__ == 'Discrete' else False
     env.close()
 
-    if atari:
-        return make_all_atari(env_id, seed, log_dir, num_envs, stack_frames, adaptive_repeat, sticky_actions, clip_rewards)
-    else:
-        return make_all_continuous(env_id, seed, log_dir, num_envs)
-
-
-def make_all_atari(env_id, seed, log_dir, num_envs, stack_frames=4, adaptive_repeat=[4], sticky_actions=0.0, clip_rewards=True):
-    envs = [make_one_atari(env_id, seed, i, log_dir, stack_frames=stack_frames, adaptive_repeat=adaptive_repeat,
+    if toy:
+        envs = [make_one_toy(env_id, seed, i, log_dir) for i in range(num_envs)]
+    elif atari:
+        envs = [make_one_atari(env_id, seed, i, log_dir, stack_frames=stack_frames, adaptive_repeat=adaptive_repeat,
                            sticky_actions=sticky_actions, clip_rewards=True) for i in range(num_envs)]
+    else:
+        envs = [make_one_continuous(env_id, seed, i, log_dir)for i in range(num_envs)]
+
     envs = DummyVecEnv(envs) if len(envs) == 1 else SubprocVecEnv(envs)
+
+    # if not toy and not atari:
+    #     if len(envs.observation_space.shape) == 1:
+    #         if gamma is None:
+    #             envs = VecNormalize(envs, ret=False)
+    #         else:
+    #             envs = VecNormalize(envs, gamma=gamma)
+
+    #     envs = VecPyTorch(envs, device)
+
+    #     if frame_stack is not None:
+    #         envs = VecPyTorchFrameStack(envs, frame_stack, device)
+    #     elif len(envs.observation_space.shape) == 3:
+    #         envs = VecPyTorchFrameStack(envs, 4, device)
 
     return envs
 
+def make_one_toy(env_id, seed, rank, log_dir):
+    def _thunk():
+        env = gym.make(env_id)
+
+        if seed:
+            env.seed(seed + rank)
+            env.action_space.seed(seed + rank)
+        else:
+            env.seed(np.random.randint(10000000000))
+            env.action_space.seed(np.random.randint(10000000000))
+
+        env = WrapOneHot(env)
+        # env = WrapSignal(env)
+
+        if str(env.__class__.__name__).find('TimeLimit') >= 0:
+            env = TimeLimitMask(env)
+
+        if log_dir is not None:
+            env = bench.Monitor(env, os.path.join(log_dir, str(rank)))
+
+        return env
+    return _thunk
 
 def make_one_atari(env_id, seed, rank, log_dir, stack_frames=4, adaptive_repeat=[4], sticky_actions=0.0, clip_rewards=True):
     def _thunk():
@@ -137,8 +194,10 @@ def make_one_atari(env_id, seed, rank, log_dir, stack_frames=4, adaptive_repeat=
 
         if seed:
             env.seed(seed + rank)
+            env.action_space.seed(seed + rank)
         else:
             env.seed(np.random.randint(10000000000))
+            env.action_space.seed(np.random.randint(10000000000))
 
         if log_dir is not None:
             env = bench.Monitor(env, os.path.join(log_dir, str(rank)))
@@ -149,27 +208,6 @@ def make_one_atari(env_id, seed, rank, log_dir, stack_frames=4, adaptive_repeat=
 
         return env
     return _thunk
-
-
-def make_all_continuous(env_id, seed, log_dir, num_envs):
-    envs = [make_one_continuous(env_id, seed, i, log_dir)for i in range(num_envs)]
-    envs = DummyVecEnv(envs) if len(envs) == 1 else SubprocVecEnv(envs)
-
-    # if len(envs.observation_space.shape) == 1:
-    #     if gamma is None:
-    #         envs = VecNormalize(envs, ret=False)
-    #     else:
-    #         envs = VecNormalize(envs, gamma=gamma)
-
-    # envs = VecPyTorch(envs, device)
-
-    # if frame_stack is not None:
-    #     envs = VecPyTorchFrameStack(envs, frame_stack, device)
-    # elif len(envs.observation_space.shape) == 3:
-    #     envs = VecPyTorchFrameStack(envs, 4, device)
-
-    return envs
-
 
 def make_one_continuous(env_id, seed, rank, log_dir):
     def _thunk():
