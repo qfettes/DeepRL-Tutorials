@@ -50,21 +50,20 @@ def test_append_to_replay():
     assert(non_final_mask.shape == (2,))
     assert(empty_next_state == False)
 
-    print(np.allclose(o0, state[0]))
-    assert(np.allclose(o0, state[0]) or 
-        np.allclose(o0, state[1]) or 
-        np.allclose(o1, state[0]) or 
-        np.allclose(o1, state[1]))
+    assert(np.allclose(o0, state[0], atol=1e-4) or 
+        np.allclose(o0, state[1], atol=1e-4) or 
+        np.allclose(o1, state[0], atol=1e-4) or 
+        np.allclose(o1, state[1], atol=1e-4))
 
-    assert(np.allclose(o1, non_final_next_state[0]) or 
-        np.allclose(o1, non_final_next_state[1]) or 
-        np.allclose(o2, non_final_next_state[0]) or 
-        np.allclose(o2, non_final_next_state[1]))
+    assert(np.allclose(o1, non_final_next_state[0], atol=1e-4) or 
+        np.allclose(o1, non_final_next_state[1], atol=1e-4) or 
+        np.allclose(o2, non_final_next_state[0], atol=1e-4) or 
+        np.allclose(o2, non_final_next_state[1], atol=1e-4))
 
-    assert(np.allclose(r1, reward[0]) or 
-        np.allclose(r1, reward[1]) or 
-        np.allclose(r2, reward[0]) or 
-        np.allclose(r2, reward[1]))
+    assert(np.allclose(r1, reward[0], atol=1e-4) or 
+        np.allclose(r1, reward[1], atol=1e-4) or 
+        np.allclose(r2, reward[0], atol=1e-4) or 
+        np.allclose(r2, reward[1], atol=1e-4))
 
     env.close()
     
@@ -107,10 +106,10 @@ def test_prep_minibatch():
     non_final_next_states = non_final_next_states.cpu().numpy()
     non_final_mask = non_final_mask.cpu().numpy()
 
-    assert(np.allclose(batch_state * config.state_norm, o0))
-    assert(np.allclose(batch_action, a0))
-    assert(np.allclose(batch_reward, r1))
-    assert(np.allclose(non_final_next_states * config.state_norm, o1))
+    assert(np.allclose(batch_state * config.state_norm, o0, atol=1e-4))
+    assert(np.allclose(batch_action, a0, atol=1e-4))
+    assert(np.allclose(batch_reward, r1, atol=1e-4))
+    assert(np.allclose(non_final_next_states * config.state_norm, o1, atol=1e-4))
     
     assert(all(non_final_mask))
     assert(not empty_next_state_values)
@@ -166,7 +165,7 @@ def test_compute_value_loss():
         tstep=config.batch_size
     )
 
-    assert(np.allclose(value_loss.item(), 0.3401326537132263))
+    assert(np.allclose(value_loss.item(), 0.3401326537132263, atol=1e-4))
 
     agent.value_optimizer.zero_grad()
     value_loss.backward()
@@ -178,7 +177,7 @@ def test_compute_value_loss():
     grad_norm = grad_norm ** (1./2.)
 
     print(grad_norm)
-    assert(np.allclose(grad_norm, 15.181056289401262))
+    assert(np.allclose(grad_norm, 15.181056289401262, atol=1e-4))
 
     env.close()
 
@@ -223,7 +222,7 @@ def test_compute_policy_loss():
         tstep=config.batch_size
     )
 
-    assert(np.allclose(policy_loss.item(), -1.5993025302886963))
+    assert(np.allclose(policy_loss.item(), -1.5993025302886963, atol=1e-4))
 
     agent.value_optimizer.zero_grad()
     policy_loss.backward()
@@ -234,7 +233,7 @@ def test_compute_policy_loss():
         grad_norm += param_norm.item() ** 2
     grad_norm = grad_norm ** (1./2.)
 
-    assert(np.allclose(grad_norm, 2.86652455897556))
+    assert(np.allclose(grad_norm, 2.86652455897556, atol=1e-4))
 
     env.close()
 
@@ -291,7 +290,7 @@ def test_compute_entropy_loss():
     agent.entropy_optimizer.zero_grad()
     entropy_loss.backward()
 
-    assert(np.allclose(entropy_loss.item(), -0.0007791760144755244))
+    assert(np.allclose(entropy_loss.item(), -0.0007791760144755244, atol=1e-4))
 
     grad_norm = 0.
     for p in grad_params:
@@ -299,7 +298,7 @@ def test_compute_entropy_loss():
         grad_norm += param_norm.item() ** 2
     grad_norm = grad_norm ** (1./2.)
 
-    assert(np.allclose(grad_norm, 7.7917585372924805))
+    assert(np.allclose(grad_norm, 7.7917585372924805, atol=1e-4))
 
     env.close()
 
@@ -350,7 +349,7 @@ def test_compute_loss():
         tstep=config.batch_size
     )
 
-    assert(np.allclose(loss, -1.3114541172981262))
+    assert(np.allclose(loss, -1.3114541172981262, atol=1e-4))
 
     env.close()
 
@@ -407,7 +406,7 @@ def test_update_():
         value_param_norm += param_norm.item() ** 2
     value_param_norm = value_param_norm ** (1./2.)
 
-    assert(np.allclose(value_param_norm, 3.8841390192814185))
+    assert(np.allclose(value_param_norm, 3.8841390192814185, atol=1e-4))
 
     policy_param_norm = 0.
     for p in agent.policy_net.parameters():
@@ -415,7 +414,7 @@ def test_update_():
         policy_param_norm += param_norm.item() ** 2
     policy_param_norm = policy_param_norm ** (1./2.)
 
-    assert(np.allclose(policy_param_norm, 2.7679626595836915))
+    assert(np.allclose(policy_param_norm, 2.7679626595836915, atol=1e-4))
 
     target_value_param_norm = 0.
     for p in agent.target_q_net.parameters():
@@ -423,7 +422,7 @@ def test_update_():
         target_value_param_norm += param_norm.item() ** 2
     target_value_param_norm = target_value_param_norm ** (1./2.)
 
-    assert(np.allclose(target_value_param_norm, 3.8594992527502163))
+    assert(np.allclose(target_value_param_norm, 3.8594992527502163, atol=1e-4))
 
     env.close()
 
@@ -464,7 +463,7 @@ def test_get_action():
         deterministic=False
     )
     expected_action = np.array([0.9474563,  -0.21982896, -0.9804724,  0.6231712,  -0.8000756,  -0.89496773])
-    assert(np.allclose(action, expected_action))
+    assert(np.allclose(action, expected_action, atol=1e-4))
 
     # check deteriminsitic action selection
     action = agent.get_action(
@@ -472,7 +471,7 @@ def test_get_action():
         deterministic=True
     )
     expected_action = np.array([0.10085898, 0.10085898, 0.10085898, 0.10085898, 0.10085898, 0.10085898])
-    assert(np.allclose(action, expected_action))
+    assert(np.allclose(action, expected_action, atol=1e-4))
 
     env.close()
 
@@ -554,6 +553,6 @@ def test_load_save():
         post_save_norm += param_norm.item() ** 2
     post_save_norm = post_save_norm ** (1./2.)
 
-    assert(np.allclose(pre_save_norm, post_save_norm))
+    assert(np.allclose(pre_save_norm, post_save_norm, atol=1e-4))
 
     env.close()
