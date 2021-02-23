@@ -11,6 +11,7 @@ import numpy as np
 from itertools import chain
 import random
 from utils.wrappers import make_one_continuous
+from utils import create_directory
 
 gym.logger.set_level(40)
 
@@ -20,6 +21,8 @@ gym.logger.set_level(40)
 def test_append_to_replay():
     env = DummyVecEnv([lambda: gym.make("HalfCheetahPyBulletEnv-v0")])
     config = Config()
+    config.device = 'cpu'
+    config.inference = True
     var_config = vars(config)
 
     agent = Agent(env, config, log_dir=None, tb_writer=None, 
@@ -68,6 +71,8 @@ def test_append_to_replay():
 def test_prep_minibatch():
     env = DummyVecEnv([lambda: gym.make("HalfCheetahPyBulletEnv-v0")])
     config = Config()
+    config.device = 'cpu'
+    config.inference = True
     config.batch_size = 1
     var_config = vars(config)
 
@@ -96,11 +101,11 @@ def test_prep_minibatch():
     assert(non_final_next_states.dtype == torch.float)
     assert(non_final_mask.dtype == torch.bool)
 
-    batch_state = batch_state.numpy()
-    batch_action = batch_action.numpy()
-    batch_reward = batch_reward.numpy()
-    non_final_next_states = non_final_next_states.numpy()
-    non_final_mask = non_final_mask.numpy()
+    batch_state = batch_state.cpu().numpy()
+    batch_action = batch_action.cpu().numpy()
+    batch_reward = batch_reward.cpu().numpy()
+    non_final_next_states = non_final_next_states.cpu().numpy()
+    non_final_mask = non_final_mask.cpu().numpy()
 
     assert(np.allclose(batch_state * config.state_norm, o0))
     assert(np.allclose(batch_action, a0))
@@ -119,6 +124,8 @@ def test_compute_value_loss():
     obs_shape = env.observation_space.shape
     act_shape = env.action_space.shape
     config = Config()
+    config.device = 'cpu'
+    config.inference = True
     config.batch_size = 10
     var_config = vars(config)
 
@@ -144,7 +151,7 @@ def test_compute_value_loss():
     non_final_mask = torch.ones((config.batch_size,), device=agent.device, dtype=torch.bool)
     empty_next_state_values = False
 
-    # assure non-determinism in action selection
+    # assure determinism
     random.seed(0)
     np.random.seed(0)
     torch.manual_seed(0)
@@ -159,7 +166,7 @@ def test_compute_value_loss():
         tstep=config.batch_size
     )
 
-    assert(np.allclose(value_loss.item(), 0.34012383222579956))
+    assert(np.allclose(value_loss.item(), 0.3401326537132263))
 
     agent.value_optimizer.zero_grad()
     value_loss.backward()
@@ -170,7 +177,8 @@ def test_compute_value_loss():
         grad_norm += param_norm.item() ** 2
     grad_norm = grad_norm ** (1./2.)
 
-    assert(np.allclose(grad_norm, 15.180826476306844))
+    print(grad_norm)
+    assert(np.allclose(grad_norm, 15.181056289401262))
 
     env.close()
 
@@ -178,6 +186,8 @@ def test_compute_policy_loss():
     env = DummyVecEnv([lambda: gym.make("HalfCheetahPyBulletEnv-v0")])
     obs_shape = env.observation_space.shape
     config = Config()
+    config.device = 'cpu'
+    config.inference = True
     config.batch_size = 10
     var_config = vars(config)
 
@@ -198,7 +208,7 @@ def test_compute_policy_loss():
     # generate deterministic dummy data
     batch_state = torch.ones((config.batch_size,)+obs_shape, device=agent.device, dtype=torch.float)
 
-    # assure non-determinism in action selection
+    # assure determinism
     random.seed(0)
     np.random.seed(0)
     torch.manual_seed(0)
@@ -232,6 +242,8 @@ def test_compute_entropy_loss():
     env = DummyVecEnv([lambda: gym.make("HalfCheetahPyBulletEnv-v0")])
     act_shape = env.action_space.shape
     config = Config()
+    config.device = 'cpu'
+    config.inference = True
     config.batch_size = 10
     config.entropy_tuning = True
     var_config = vars(config)
@@ -254,7 +266,7 @@ def test_compute_entropy_loss():
     action_log_probs = torch.ones((config.batch_size,1), device=agent.device, dtype=torch.float) / act_shape[0]
     action_log_probs = action_log_probs.log()
 
-    # assure non-determinism in action selection
+    # assure determinism
     random.seed(0)
     np.random.seed(0)
     torch.manual_seed(0)
@@ -296,6 +308,8 @@ def test_compute_loss():
     obs_shape = env.observation_space.shape
     act_shape = env.action_space.shape
     config = Config()
+    config.device = 'cpu'
+    config.inference = True
     config.batch_size = 10
     var_config = vars(config)
 
@@ -321,7 +335,7 @@ def test_compute_loss():
     non_final_mask = torch.ones((config.batch_size,), device=agent.device, dtype=torch.bool)
     empty_next_state_values = False
 
-    # assure non-determinism in action selection
+    # assure determinism
     random.seed(0)
     np.random.seed(0)
     torch.manual_seed(0)
@@ -345,6 +359,8 @@ def test_update_():
     obs_shape = env.observation_space.shape
     act_shape = env.action_space.shape
     config = Config()
+    config.device = 'cpu'
+    config.inference = True
     config.seed = 0
     config.batch_size = 10
     var_config = vars(config)
@@ -415,6 +431,7 @@ def test_get_action():
     env = DummyVecEnv([make_one_continuous('HalfCheetahPyBulletEnv-v0', 0, 0, None)])
     obs_shape = env.observation_space.shape
     config = Config()
+    config.device = 'cpu'
     config.seed = 0
     config.batch_size = 10
     var_config = vars(config)
@@ -459,9 +476,12 @@ def test_get_action():
 
     env.close()
 
+
 def test_step():
     env = DummyVecEnv([make_one_continuous('HalfCheetahPyBulletEnv-v0', 0, 0, None)])
     config = Config()
+    config.device = 'cpu'
+    config.inference = True
     config.seed = 0
     config.batch_size = 10
     var_config = vars(config)
@@ -495,10 +515,13 @@ def test_step():
 def test_load_save():
     env = DummyVecEnv([make_one_continuous('HalfCheetahPyBulletEnv-v0', 0, 0, None)])
     config = Config()
+    config.device = 'cpu'
+    config.inference = True
     config.seed = 0
     config.batch_size = 10
     config.entropy_tuning = True
     config.logdir='./unittests/'
+    create_directory(os.path.join(config.logdir, 'saved_model'))
     var_config = vars(config)
 
     agent = Agent(env, config, log_dir=config.logdir, tb_writer=None, 

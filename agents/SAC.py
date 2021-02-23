@@ -263,7 +263,7 @@ class Agent(DQN_Agent):
         if current_tstep < self.config.random_act:
             self.actions = self.envs.action_space.sample()
         else:
-            self.actions = self.get_action(self.observations, deterministic=False)
+            self.actions = self.get_action(self.observations, deterministic=self.config.inference)
 
         self.prev_observations = self.observations
         self.observations, self.rewards, self.dones, self.infos = self.envs.step(self.actions)
