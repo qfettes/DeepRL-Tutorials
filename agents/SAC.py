@@ -136,7 +136,7 @@ class Agent(DQN_Agent):
         return value_loss
 
     def compute_policy_loss(self, batch_vars, tstep):
-        batch_state, _, _, _, _, _, _, _ = batch_vars
+        batch_state, _, _, _, _, _, _, weights = batch_vars
 
         # Compute policy loss
         self.policy_net.sample_noise()
@@ -146,7 +146,11 @@ class Agent(DQN_Agent):
         q_val1, q_val2 = self.q_net(batch_state, actions)
         q_val = torch.min(q_val1, q_val2)
 
-        policy_loss = (self.config.entropy_coef * log_probs - q_val).mean()
+        policy_loss = (self.config.entropy_coef * log_probs - q_val)
+        if self.config.priority_replay:
+            policy_loss *= weights
+        policy_loss = policy_loss.mean()
+
 
         # log val estimates
         if self.tb_writer:
@@ -156,8 +160,11 @@ class Agent(DQN_Agent):
 
         return policy_loss, log_probs
 
-    def compute_entropy_loss(self, action_log_probs, tstep):
-        entropy_loss = -(self.log_entropy_coef * (action_log_probs + self.target_entropy).detach()).mean()
+    def compute_entropy_loss(self, action_log_probs, weights, tstep):
+        entropy_loss = -(self.log_entropy_coef * (action_log_probs + self.target_entropy).detach())
+        if self.config.priority_replay:
+            entropy_loss *= weights
+        entropy_loss = entropy_loss.mean()
 
         if self.tb_writer:
             with torch.no_grad():
@@ -191,7 +198,7 @@ class Agent(DQN_Agent):
         loss_entropy = torch.zeros((1,)).to(self.device)
         if self.config.entropy_tuning:
             self.entropy_optimizer.zero_grad()
-            loss_entropy = self.compute_entropy_loss(action_log_probs, tstep)
+            loss_entropy = self.compute_entropy_loss(action_log_probs, batch_vars[-1], tstep)
             loss_entropy.backward()
             torch.nn.utils.clip_grad_norm_(
                 [self.log_entropy_coef], self.config.grad_norm_max)
