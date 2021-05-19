@@ -103,6 +103,7 @@ python train.py --algo sac --env-id HalfCheetah-v2 --gamma 0.99 --polyak-coef 0.
 * matplotlib
 * notebook
 * gym 
+* pybullet-gym
 * pytorch>=1.3.0
 * openCV 
 * baselines
